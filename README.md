@@ -2,13 +2,6 @@
 
 FFXIV Gear Recognition Frontend Service
 
-## Features
-
-- 🖼️ Image upload
-- ✂️ Gear part segmentation
-- 🔍 Gear recognition
-- 🖱️ Image cropping
-
 ## Development
 
 ### Requirements
