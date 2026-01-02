@@ -4,20 +4,10 @@ FFXIV Gear Recognition Frontend Service
 
 ## Features
 
-- 🖼️ Image upload (drag & drop, click, and paste from clipboard)
-- ✂️ Gear part segmentation (calls Dissector service)
-- 🔍 Gear recognition (calls Revelation service)
-- 🎨 Clean and minimalist white design style
-- ⚡ Fully asynchronous processing, non-blocking UI
-- 🖱️ Image cropping with adjustable selection area
-- 📊 Debug preview of all segmented parts
-
-## Tech Stack
-
-- **Next.js 16** - React framework
-- **TypeScript** - Type safety
-- **Tailwind CSS 4** - Styling framework
-- **React 19** - UI library
+- 🖼️ Image upload
+- ✂️ Gear part segmentation
+- 🔍 Gear recognition
+- 🖱️ Image cropping
 
 ## Development
 
