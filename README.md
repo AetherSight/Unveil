@@ -81,15 +81,6 @@ server {
 }
 ```
 
-## API Services
-
-This project depends on two backend microservices:
-
-- **[Dissector](https://github.com/AetherSight/Dissector)** - Gear segmentation service (port 8000)
-- **[Revelation](https://github.com/AetherSight/Revelation)** - Gear recognition service (port 5000)
-
-Please ensure both services are started and running.
-
 ## Project Structure
 
 ```
