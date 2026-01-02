@@ -64,30 +64,6 @@ server {
 }
 ```
 
-## Project Structure
-
-```
-.
-├── app/              # Next.js App Router
-│   ├── page.tsx      # Main page
-│   ├── layout.tsx    # Layout
-│   ├── globals.css   # Global styles
-│   └── api/          # API routes
-│       ├── segment/  # Segmentation proxy
-│       ├── predict/  # Prediction proxy
-│       └── health/   # Health check
-├── components/       # React components
-│   ├── ImageUpload.tsx              # Image upload component
-│   ├── ImageWithCrop.tsx            # Image cropping component
-│   ├── SegmentResults.tsx           # Segmentation results display
-│   ├── PredictionResults.tsx        # Recognition results display
-│   ├── PredictionResultsSkeleton.tsx # Skeleton loader
-│   └── LoadingSpinner.tsx          # Loading spinner
-└── lib/              # Utilities
-    ├── api.ts        # API client
-    └── types.ts      # Type definitions
-```
-
 ## License
 
-MIT
+AGPL-3.0
