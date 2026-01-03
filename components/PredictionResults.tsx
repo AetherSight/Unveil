@@ -1,15 +1,25 @@
 'use client';
 
+import { useState } from 'react';
+import Image from 'next/image';
 import type { PredictionResult } from '@/lib/types';
+import { sendFeedback } from '@/lib/api';
 
 interface PredictionResultsProps {
   results: PredictionResult[];
+  croppedImageFile: File | null;
 }
 
-export default function PredictionResults({ results }: PredictionResultsProps) {
+export default function PredictionResults({ results, croppedImageFile }: PredictionResultsProps) {
+  const [selectedRank, setSelectedRank] = useState<number | null>(null);
+  const [hoveredRank, setHoveredRank] = useState<number | null>(null);
+  const [feedbackStatus, setFeedbackStatus] = useState<Record<number | string, 'sending' | 'success'>>({});
+  
   if (results.length === 0) {
     return null;
   }
+
+  const UNKNOWN_RANK = 'unknown';
 
   const parseLabel = (label: string) => {
     const parts = label.split('_');
@@ -26,20 +36,104 @@ export default function PredictionResults({ results }: PredictionResultsProps) {
     return `https://ff14.huijiwiki.com/wiki/物品:${encodedName}`;
   };
 
+  const getIconUrl = (id: string | null) => {
+    if (!id) return null;
+    return `/icon/${id}`;
+  };
+
+  const handleFeedback = async (label: string, rank: number | string) => {
+    if (!croppedImageFile || selectedRank !== null) {
+      return;
+    }
+
+    setSelectedRank(rank);
+    setFeedbackStatus(prev => ({ ...prev, [rank]: 'sending' }));
+
+    try {
+      await sendFeedback(croppedImageFile, label);
+      setFeedbackStatus(prev => ({ ...prev, [rank]: 'success' }));
+    } catch (error) {
+      setSelectedRank(null);
+      setFeedbackStatus(prev => {
+        const newStatus = { ...prev };
+        delete newStatus[rank];
+        return newStatus;
+      });
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="space-y-2">
         {results.map((result) => {
           const { name, id } = parseLabel(result.label);
+          const iconUrl = getIconUrl(id);
           return (
             <div
               key={result.rank}
               className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
             >
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-light">
-                  {result.rank}
-                </div>
+                {iconUrl ? (
+                  <div 
+                    className={`relative w-12 h-12 flex-shrink-0 ${
+                      !croppedImageFile
+                        ? 'cursor-not-allowed opacity-50'
+                        : selectedRank === null 
+                          ? 'cursor-pointer' 
+                          : selectedRank === result.rank 
+                            ? 'cursor-default' 
+                            : 'cursor-pointer'
+                    }`}
+                    onClick={() => croppedImageFile && selectedRank === null && handleFeedback(result.label, result.rank)}
+                    onMouseEnter={() => croppedImageFile && selectedRank === null && setHoveredRank(result.rank)}
+                    onMouseLeave={() => setHoveredRank(null)}
+                    title={
+                      !croppedImageFile 
+                        ? '无可用图片' 
+                        : selectedRank === null 
+                          ? '点击反馈此结果' 
+                          : selectedRank === result.rank 
+                            ? '已选择' 
+                            : ''
+                    }
+                  >
+                    <Image
+                      src={iconUrl}
+                      alt={name}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                    {(hoveredRank === result.rank && selectedRank === null && croppedImageFile) && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded transition-opacity animate-fade-in">
+                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                    {feedbackStatus[result.rank] === 'sending' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded">
+                        <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                    {feedbackStatus[result.rank] === 'success' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-green-50/90 rounded transition-all animate-scale-in">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-light">
+                    {result.rank}
+                  </div>
+                )}
                 <div className="flex flex-col">
                   <a
                     href={getWikiUrl(name)}
@@ -68,6 +162,66 @@ export default function PredictionResults({ results }: PredictionResultsProps) {
             </div>
           );
         })}
+        <div
+          key={UNKNOWN_RANK}
+          className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
+        >
+          <div className="flex items-center gap-3">
+            <div 
+              className={`relative w-12 h-12 flex-shrink-0 flex items-center justify-center bg-gray-100 rounded transition-opacity ${
+                !croppedImageFile
+                  ? 'cursor-not-allowed opacity-50'
+                  : selectedRank === null 
+                    ? 'cursor-pointer hover:opacity-70' 
+                    : selectedRank === UNKNOWN_RANK 
+                      ? 'cursor-default' 
+                      : 'cursor-pointer'
+              }`}
+              onClick={() => croppedImageFile && selectedRank === null && handleFeedback('unknown', UNKNOWN_RANK)}
+              title={
+                !croppedImageFile 
+                  ? '无可用图片' 
+                  : selectedRank === null 
+                    ? '点击反馈此结果' 
+                    : selectedRank === UNKNOWN_RANK 
+                      ? '已选择' 
+                      : ''
+              }
+            >
+              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              {feedbackStatus[UNKNOWN_RANK] === 'sending' && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded">
+                  <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              {feedbackStatus[UNKNOWN_RANK] === 'success' && (
+                <div className="absolute inset-0 flex items-center justify-center bg-green-50/90 rounded transition-all animate-scale-in">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-gray-800 font-light">
+                没有正确结果？点此反馈
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-400 transition-all"
+                style={{ width: '0%' }}
+              />
+            </div>
+            <span className="text-xs text-gray-500 w-12 text-right font-light">
+              0.00%
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

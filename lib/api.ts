@@ -52,6 +52,29 @@ export async function predictEquipment(
   return await response.json();
 }
 
+export async function sendFeedback(
+  imageFile: File,
+  label: string
+): Promise<void> {
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  formData.append('label', label);
+
+  const url = new URL('/api/feedback', window.location.origin);
+
+  const response = await fetch(url.toString(), {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({
+      message: `HTTP ${response.status}: ${response.statusText}`,
+    }));
+    throw new Error(error.message || error.detail || '反馈失败');
+  }
+}
+
 export async function checkHealth(service: 'dissector' | 'revelation'): Promise<boolean> {
   try {
     const url = new URL('/api/health', window.location.origin);

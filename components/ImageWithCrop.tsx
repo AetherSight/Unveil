@@ -254,55 +254,42 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, cropArea }: 
         />
         
         <div
-          className="absolute top-0 left-0 bg-black/50 pointer-events-none z-10"
+          className="absolute inset-0 bg-black/50 pointer-events-none z-10"
           style={{
-            width: `${cropBox.x}px`,
-            height: '100%',
-          }}
-        />
-        <div
-          className="absolute top-0 right-0 bg-black/50 pointer-events-none z-10"
-          style={{
-            left: `${cropBox.x + cropBox.width}px`,
-            width: `${containerSize.width - cropBox.x - cropBox.width}px`,
-            height: '100%',
-          }}
-        />
-        <div
-          className="absolute top-0 left-0 bg-black/50 pointer-events-none z-10"
-          style={{
-            left: `${cropBox.x}px`,
-            width: `${cropBox.width}px`,
-            height: `${cropBox.y}px`,
-          }}
-        />
-        <div
-          className="absolute bottom-0 left-0 bg-black/50 pointer-events-none z-10"
-          style={{
-            left: `${cropBox.x}px`,
-            top: `${cropBox.y + cropBox.height}px`,
-            width: `${cropBox.width}px`,
-            height: `${containerSize.height - cropBox.y - cropBox.height}px`,
+            clipPath: `polygon(
+              0% 0%,
+              0% 100%,
+              ${Math.round(cropBox.x)}px 100%,
+              ${Math.round(cropBox.x)}px ${Math.round(cropBox.y)}px,
+              ${Math.round(cropBox.x + cropBox.width)}px ${Math.round(cropBox.y)}px,
+              ${Math.round(cropBox.x + cropBox.width)}px ${Math.round(cropBox.y + cropBox.height)}px,
+              ${Math.round(cropBox.x)}px ${Math.round(cropBox.y + cropBox.height)}px,
+              ${Math.round(cropBox.x)}px 100%,
+              100% 100%,
+              100% 0%
+            )`,
           }}
         />
         
         <div
-          className="absolute border-2 border-white pointer-events-none z-20"
+          className="absolute pointer-events-none z-20"
           style={{
-            left: `${cropBox.x}px`,
-            top: `${cropBox.y}px`,
-            width: `${cropBox.width}px`,
-            height: `${cropBox.height}px`,
+            left: `${Math.round(cropBox.x)}px`,
+            top: `${Math.round(cropBox.y)}px`,
+            width: `${Math.round(cropBox.width)}px`,
+            height: `${Math.round(cropBox.height)}px`,
+            outline: '2px solid white',
+            outlineOffset: '-2px',
           }}
         />
         
         <div
-          className="absolute border-2 border-white bg-transparent z-30 cursor-move"
+          className="absolute bg-transparent z-30 cursor-move"
           style={{
-            left: `${cropBox.x}px`,
-            top: `${cropBox.y}px`,
-            width: `${cropBox.width}px`,
-            height: `${cropBox.height}px`,
+            left: `${Math.round(cropBox.x)}px`,
+            top: `${Math.round(cropBox.y)}px`,
+            width: `${Math.round(cropBox.width)}px`,
+            height: `${Math.round(cropBox.height)}px`,
             touchAction: 'none',
           }}
           onMouseDown={handleStart}
@@ -310,10 +297,10 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, cropArea }: 
         />
         
         <div
-          className="absolute bg-white border-2 border-white rounded-full z-30 cursor-nwse-resize"
+          className="absolute bg-white rounded-full z-30 cursor-nwse-resize"
           style={{
-            left: `${cropBox.x + cropBox.width - 10}px`,
-            top: `${cropBox.y + cropBox.height - 10}px`,
+            left: `${Math.round(cropBox.x + cropBox.width - 10)}px`,
+            top: `${Math.round(cropBox.y + cropBox.height - 10)}px`,
             width: '20px',
             height: '20px',
             touchAction: 'none',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 const STORAGE_KEYS = {
   boxThreshold: 'unveil_box_threshold',
@@ -27,10 +27,17 @@ export default function Home() {
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [cropArea, setCropArea] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [croppedImageFile, setCroppedImageFile] = useState<File | null>(null);
   const [boxThreshold, setBoxThreshold] = useState(0.3);
   const [textThreshold, setTextThreshold] = useState(0.25);
   const [topK, setTopK] = useState(5);
   const [isClient, setIsClient] = useState(false);
+  const lastProcessedRef = useRef<{
+    imageKey: string | null;
+    cropAreaKey: string | null;
+    boxThreshold: number | null;
+    textThreshold: number | null;
+  }>({ imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null });
 
   useEffect(() => {
     setIsClient(true);
@@ -107,11 +114,27 @@ export default function Home() {
   const handleProcess = useCallback(async () => {
     if (!selectedImage || !imagePreview) return;
 
+    const imageKey = `${selectedImage.name}-${selectedImage.size}-${selectedImage.lastModified}`;
+    const cropAreaKey = cropArea 
+      ? `${cropArea.x}-${cropArea.y}-${cropArea.width}-${cropArea.height}` 
+      : 'no-crop';
+
+    if (
+      lastProcessedRef.current.imageKey === imageKey &&
+      lastProcessedRef.current.cropAreaKey === cropAreaKey &&
+      lastProcessedRef.current.boxThreshold === boxThreshold &&
+      lastProcessedRef.current.textThreshold === textThreshold &&
+      processingState === 'complete'
+    ) {
+      return;
+    }
+
     setError(null);
     setProcessingState('segmenting');
 
     try {
       let imageToProcess: File = selectedImage;
+      setCroppedImageFile(selectedImage);
 
       if (cropArea && cropArea.width >= 10 && cropArea.height >= 10) {
         const img = document.createElement('img');
@@ -147,6 +170,7 @@ export default function Home() {
           });
           if (blob) {
             imageToProcess = new File([blob], 'cropped-image.png', { type: 'image/png' });
+            setCroppedImageFile(imageToProcess);
           }
         }
       }
@@ -167,11 +191,18 @@ export default function Home() {
       const predictData = await predictEquipment(file, topK);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
+      
+      lastProcessedRef.current = {
+        imageKey,
+        cropAreaKey,
+        boxThreshold,
+        textThreshold,
+      };
     } catch (err) {
       setError(err instanceof Error ? err.message : '处理失败');
       setProcessingState('error');
     }
-  }, [selectedImage, imagePreview, cropArea, boxThreshold, textThreshold, topK]);
+  }, [selectedImage, imagePreview, cropArea, boxThreshold, textThreshold, topK, processingState]);
 
   const handleReset = useCallback(() => {
     setSelectedImage(null);
@@ -180,6 +211,8 @@ export default function Home() {
     setSegmentResults(null);
     setProcessingState('idle');
     setError(null);
+    setCroppedImageFile(null);
+    lastProcessedRef.current = { imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null };
   }, []);
 
   return (
@@ -216,15 +249,15 @@ export default function Home() {
                     </div>
                     <input
                       type="range"
-                      min="0.1"
-                      max="0.9"
+                      min="0.2"
+                      max="0.5"
                       step="0.05"
                       value={boxThreshold}
                       onChange={(e) => setBoxThreshold(parseFloat(e.target.value))}
                       disabled={processingState === 'segmenting' || processingState === 'predicting'}
                       className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{
-                        background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${(boxThreshold - 0.1) / 0.8 * 100}%, #e5e7eb ${(boxThreshold - 0.1) / 0.8 * 100}%, #e5e7eb 100%)`
+                        background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${(boxThreshold - 0.2) / 0.3 * 100}%, #e5e7eb ${(boxThreshold - 0.2) / 0.3 * 100}%, #e5e7eb 100%)`
                       }}
                     />
                     <p className="text-xs text-gray-400 font-light">
@@ -436,19 +469,20 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col space-y-4">
-            {segmentResults && (
-              <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-                <h2 className="text-sm font-light text-gray-700 mb-4">分割结果预览</h2>
-                <SegmentResults results={segmentResults} />
-              </div>
-            )}
+            <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
+              <h2 className="text-sm font-light text-gray-700 mb-4">分割结果预览</h2>
+              <SegmentResults results={segmentResults} />
+            </div>
             <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
               {imagePreview ? (
                 <>
                   {processingState === 'segmenting' || processingState === 'predicting' ? (
                     <PredictionResultsSkeleton />
                   ) : predictionResults.length > 0 ? (
-                    <PredictionResults results={predictionResults} />
+                    <PredictionResults 
+                      results={predictionResults} 
+                      croppedImageFile={croppedImageFile}
+                    />
                   ) : (
                     <div className="flex items-center justify-center py-12">
                       <p className="text-sm text-gray-400 font-light">点击"开始识别"查看结果</p>
@@ -463,6 +497,27 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        <footer className="mt-16 pt-8 pb-8 border-t border-gray-200">
+          <div className="flex flex-col items-center gap-4 text-sm text-gray-500 font-light">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              <span>Powered by </span>
+              <a
+                href="https://github.com/AetherSight/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-600 hover:text-gray-800 transition-colors underline"
+              >
+                AetherSight
+              </a>
+              <span> with ♥</span>
+            </div>
+            <div className="text-center space-y-1">
+              <p>FINAL FANTASY XIV © 2010-2026 SQUARE ENIX CO., LTD. All Rights Reserved.</p>
+              <p>This project is not affiliated with or endorsed by SQUARE ENIX CO., LTD.</p>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );
