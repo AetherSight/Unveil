@@ -720,7 +720,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Debug: 去除背景后的图片 - 右下角浮窗 */}
+        {/* 去除背景后的图片预览 - 右下角浮窗 */}
         {previewImage && (
           <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-xs">
             <div className="flex items-center justify-between mb-2">
