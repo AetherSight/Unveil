@@ -551,21 +551,6 @@ export default function Home() {
                   </div>
                 )}
                 
-                {/* Debug: 去除背景后的图片 */}
-                {removedBackgroundImage && (
-                  <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-                    <h3 className="text-sm font-light text-gray-700 mb-4">去除背景后 (Debug)</h3>
-                    <div className="flex justify-center">
-                      <img
-                        src={`data:image/png;base64,${removedBackgroundImage}`}
-                        alt="去除背景后的图片"
-                        className="max-w-full h-auto border border-gray-200 rounded"
-                        style={{ maxHeight: '300px' }}
-                      />
-                    </div>
-                  </div>
-                )}
-                
                 {/* 识别结果区域 */}
                 <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
                   <h3 className="text-sm font-light text-gray-700 mb-4">
@@ -604,6 +589,32 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {/* Debug: 去除背景后的图片 - 右下角浮窗 */}
+        {removedBackgroundImage && (
+          <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-xs">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-light text-gray-700">去除背景后 (Debug)</h3>
+              <button
+                onClick={() => setRemovedBackgroundImage(null)}
+                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                title="关闭"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex justify-center">
+              <img
+                src={`data:image/png;base64,${removedBackgroundImage}`}
+                alt="去除背景后的图片"
+                className="max-w-full h-auto border border-gray-200 rounded"
+                style={{ maxHeight: '200px' }}
+              />
+            </div>
+          </div>
+        )}
 
         <footer className="mt-16 pt-8 pb-8 border-t border-gray-200">
           <div className="flex flex-col items-center gap-4 text-sm text-gray-500 font-light">
