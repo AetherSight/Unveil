@@ -30,7 +30,7 @@ export async function GET(
       ? 'image/jpeg'
       : 'image/png';
 
-    return new NextResponse(iconBuffer, {
+    return new NextResponse(iconBuffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': contentType,
