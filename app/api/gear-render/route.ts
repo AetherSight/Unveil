@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
     const gearId = searchParams.get('id');
     const gearName = searchParams.get('name');
     const angle = searchParams.get('angle') || 'h0'; // 默认角度 h0，支持 h0, h45, h225
+    
+    // 调试：输出原始参数
+    console.log('原始参数 - gearId:', gearId, 'gearName:', gearName, 'angle:', angle);
 
     // 验证参数
     if (!gearId || !gearName) {
