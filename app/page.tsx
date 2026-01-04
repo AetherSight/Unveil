@@ -392,7 +392,7 @@ export default function Home() {
                 
                 {/* 部位选择按钮（涂抹或框选模式下，显示在图片下方） */}
                 {brushMaskFile && (
-                  <div className="mt-3">
+                  <div className="mt-1">
                     <div className="bg-white/95 border border-gray-200 rounded-lg p-2 shadow-lg">
                       <div className="text-xs text-gray-600 font-light mb-2 text-center">选择部位</div>
                       <div className="flex gap-1">
