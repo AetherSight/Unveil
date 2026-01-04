@@ -14,7 +14,7 @@ import PredictionResults from '@/components/PredictionResults';
 import PredictionResultsSkeleton from '@/components/PredictionResultsSkeleton';
 import SegmentResults, { partLabels } from '@/components/SegmentResults';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { predictEquipment, segmentImage } from '@/lib/api';
+import { predictEquipment, segmentImage, removeBackground } from '@/lib/api';
 import type { PredictionResult, SegmentResponse } from '@/lib/types';
 
 type ProcessingState = 'idle' | 'predicting' | 'complete' | 'error';
@@ -38,6 +38,7 @@ export default function Home() {
   const [segmentState, setSegmentState] = useState<'idle' | 'segmenting' | 'complete' | 'error'>('idle');
   const [resultView, setResultView] = useState<ResultView>('prediction');
   const [selectedSegmentPart, setSelectedSegmentPart] = useState<keyof SegmentResponse | null>(null);
+  const [removedBackgroundImage, setRemovedBackgroundImage] = useState<string | null>(null); // base64 string for debug
   const lastProcessedRef = useRef<{
     imageKey: string | null;
     cropAreaKey: string | null;
@@ -180,6 +181,7 @@ export default function Home() {
     setSegmentState('idle');
     setResultView('prediction');
     setSelectedSegmentPart(null);
+    setRemovedBackgroundImage(null);
     lastProcessedRef.current = { imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null };
   }, []);
 
@@ -190,16 +192,21 @@ export default function Home() {
     setSegmentResults(null);
     setSelectedSegmentPart(null);
     setSegmentState('idle');
+    setRemovedBackgroundImage(null);
   }, []);
 
   // 包装 setBrushMaskFile，当开始新的涂抹操作时清除分割结果
   const handleBrushMaskChange = useCallback((file: File | null) => {
     setBrushMaskFile(file);
-    // 当开始新的涂抹操作时（file 不为 null），清除分割结果
+    // 当开始新的涂抹操作时（file 不为 null），清除分割结果和去除背景后的图片
     if (file !== null && segmentResults) {
       setSegmentResults(null);
       setSelectedSegmentPart(null);
       setSegmentState('idle');
+    }
+    // 清除去除背景后的图片
+    if (file === null) {
+      setRemovedBackgroundImage(null);
     }
   }, [segmentResults]);
 
@@ -253,14 +260,22 @@ export default function Home() {
     setProcessingState('predicting');
     setPredictionResults([]);
     setResultView('segment');
+    setRemovedBackgroundImage(null);
 
     try {
       // 将 base64 转换为 File
       const partFile = base64ToFile(base64, `${part}.png`);
-      setCroppedImageFile(partFile);
+      
+      // 先调用去除背景接口
+      const removedBgBase64 = await removeBackground(partFile);
+      setRemovedBackgroundImage(removedBgBase64); // debug显示
+      
+      // 将去除背景后的base64转换为File
+      const removedBgFile = base64ToFile(removedBgBase64, `${part}-no-bg.png`);
+      setCroppedImageFile(removedBgFile);
 
       // 调用识别接口
-      const predictData = await predictEquipment(partFile, 10);
+      const predictData = await predictEquipment(removedBgFile, 10);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
     } catch (err) {
@@ -286,11 +301,19 @@ export default function Home() {
     setSelectedPart(part);
     setProcessingState('predicting');
     setPredictionResults([]);
-    setCroppedImageFile(brushMaskFile);
+    setRemovedBackgroundImage(null);
 
     try {
+      // 先调用去除背景接口
+      const removedBgBase64 = await removeBackground(brushMaskFile);
+      setRemovedBackgroundImage(removedBgBase64); // debug显示
+      
+      // 将去除背景后的base64转换为File
+      const removedBgFile = base64ToFile(removedBgBase64, 'removed-bg.png');
+      setCroppedImageFile(removedBgFile);
+
       // 调用识别接口
-      const predictData = await predictEquipment(brushMaskFile, 10);
+      const predictData = await predictEquipment(removedBgFile, 10);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
       
@@ -304,7 +327,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '识别失败');
       setProcessingState('error');
     }
-  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold]);
+  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, base64ToFile]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -532,6 +555,21 @@ export default function Home() {
                         onPartClick={handleSegmentPartClick}
                       />
                     )}
+                  </div>
+                )}
+                
+                {/* Debug: 去除背景后的图片 */}
+                {removedBackgroundImage && (
+                  <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
+                    <h3 className="text-sm font-light text-gray-700 mb-4">去除背景后 (Debug)</h3>
+                    <div className="flex justify-center">
+                      <img
+                        src={`data:image/png;base64,${removedBackgroundImage}`}
+                        alt="去除背景后的图片"
+                        className="max-w-full h-auto border border-gray-200 rounded"
+                        style={{ maxHeight: '300px' }}
+                      />
+                    </div>
                   </div>
                 )}
                 

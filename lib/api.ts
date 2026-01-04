@@ -89,6 +89,33 @@ export async function sendFeedback(
   }
 }
 
+export async function removeBackground(imageFile: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', imageFile);
+
+  try {
+    const response = await fetch('/api/remove-background', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      }));
+      throw new Error(error.message || error.detail || '去除背景失败');
+    }
+
+    const data = await response.json();
+    return data.image;
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('无法连接到服务器，请检查网络连接或确认后端服务是否已启动');
+    }
+    throw error;
+  }
+}
+
 export async function checkHealth(service: 'dissector' | 'revelation'): Promise<boolean> {
   try {
     const url = new URL('/api/health', window.location.origin);
