@@ -55,11 +55,14 @@ export async function GET(request: NextRequest) {
       // 读取目录中的文件
       const files = await readdir(folderPath);
       
-      // 过滤出 PNG 文件，并按文件名排序
+      // 过滤出 PNG 文件，并按文件名排序（保证幂等性）
       const pngFiles = files
         .filter(file => file.toLowerCase().endsWith('.png'))
-        .sort()
+        .sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true })) // 使用localeCompare确保稳定的排序
         .slice(0, 3); // 只取前3个
+      
+      console.log('目录文件列表:', files);
+      console.log('过滤后的PNG文件:', pngFiles);
 
       // 从文件名中提取角度信息（格式：id_h角度_p0.png）
       const fileList = pngFiles.map(file => {
