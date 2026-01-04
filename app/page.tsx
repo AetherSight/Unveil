@@ -184,6 +184,7 @@ export default function Home() {
     setSelectedSegmentPart(null);
     setPreviewImage(null);
     setSelectionMode('brush'); // Reset to default brush mode
+    setSelectedPart(null); // 清除选中的部位
     lastProcessedRef.current = { imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null };
   }, []);
 
