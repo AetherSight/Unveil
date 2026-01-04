@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const DISSECTOR_API = process.env.DISSECTOR_API || 'http://localhost:8000';
+import { getNextDissectorUrl } from '@/lib/dissector-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +16,9 @@ export async function POST(request: NextRequest) {
     const backendFormData = new FormData();
     backendFormData.append('file', imageFile);
 
-    const response = await fetch(`${DISSECTOR_API}/remove-background`, {
+    // 使用轮询获取下一个可用的服务地址
+    const dissectorUrl = getNextDissectorUrl();
+    const response = await fetch(`${dissectorUrl}/remove-background`, {
       method: 'POST',
       body: backendFormData,
     });
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     let errorMessage = '去除背景失败';
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      errorMessage = `无法连接到后端服务 (${DISSECTOR_API})，请确认服务是否已启动`;
+      errorMessage = '无法连接到后端服务，请确认服务是否已启动';
     } else if (error instanceof Error) {
       errorMessage = error.message;
     }

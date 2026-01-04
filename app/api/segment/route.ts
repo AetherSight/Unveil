@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const DISSECTOR_API = process.env.DISSECTOR_API || 'http://localhost:8000';
+import { getNextDissectorUrl } from '@/lib/dissector-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +18,9 @@ export async function POST(request: NextRequest) {
     const backendFormData = new FormData();
     backendFormData.append('file', imageFile);
 
-    const url = new URL(`${DISSECTOR_API}/segment`);
+    // 使用轮询获取下一个可用的服务地址
+    const dissectorUrl = getNextDissectorUrl();
+    const url = new URL(`${dissectorUrl}/segment`);
     url.searchParams.set('box_threshold', boxThreshold);
     url.searchParams.set('text_threshold', textThreshold);
 
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     let errorMessage = '分割失败';
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      errorMessage = `无法连接到后端服务 (${DISSECTOR_API})，请确认服务是否已启动`;
+      errorMessage = '无法连接到后端服务，请确认服务是否已启动';
     } else if (error instanceof Error) {
       errorMessage = error.message;
     }
