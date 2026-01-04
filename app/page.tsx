@@ -292,6 +292,21 @@ export default function Home() {
       return;
     }
 
+    // 检查是否与上次处理的内容相同
+    const imageKey = `${selectedImage?.name}-${selectedImage?.size}-${selectedImage?.lastModified}`;
+    const processKey = `${selectionMode}-${brushMaskFile.size}-${brushMaskFile.lastModified}`;
+    
+    if (
+      lastProcessedRef.current.imageKey === imageKey &&
+      lastProcessedRef.current.cropAreaKey === processKey &&
+      lastProcessedRef.current.boxThreshold === boxThreshold &&
+      lastProcessedRef.current.textThreshold === textThreshold &&
+      processingState === 'complete' &&
+      selectedPart === part
+    ) {
+      // 如果内容相同且已完成，不重复发送请求
+      return;
+    }
 
     setError(null);
     setSelectedPart(part);
