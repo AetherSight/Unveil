@@ -8,6 +8,7 @@ interface ImageWithCropProps {
   onBrushMaskChange?: (maskFile: File | null) => void;
   cropArea?: { x: number; y: number; width: number; height: number } | null;
   onClearSelection?: () => void;
+  onModeChange?: (mode: 'brush' | 'box') => void;
 }
 
 export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskChange, cropArea, onClearSelection, onModeChange }: ImageWithCropProps) {
@@ -105,8 +106,12 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
   }, [cropArea, imageLoaded, imageDisplaySize, imageNaturalSize, mode]);
 
 
-  // 切换模式时清除状态
+  // 切换模式时清除状态，并通知父组件
   useEffect(() => {
+    if (onModeChange) {
+      onModeChange(mode);
+    }
+    
     if (mode === 'box') {
       setBrushPoints([]);
       setIsDrawing(false);
@@ -119,7 +124,7 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
         onBrushMaskChange(null);
       }
     }
-  }, [mode, onBrushMaskChange]);
+  }, [mode, onBrushMaskChange, onModeChange]);
 
   // 绘制涂抹轨迹（黄色透明画笔）或框选框
   useEffect(() => {
