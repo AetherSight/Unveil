@@ -319,7 +319,25 @@ export default function Home() {
         setPredictionResults(predictData.results);
         setProcessingState('complete');
       } else {
-        // 涂抹模式：直接使用原图，不去除背景
+        // 涂抹模式：直接使用原图，不去除背景，但需要显示预览
+        // 将 File 转换为 base64 用于预览
+        const fileToBase64 = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              // 移除 data:image/png;base64, 前缀（如果有）
+              const base64 = result.includes(',') ? result.split(',')[1] : result;
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        };
+        
+        const maskBase64 = await fileToBase64(brushMaskFile);
+        setPreviewImage(maskBase64); // 预览显示涂抹后的图片
+        
         setCroppedImageFile(brushMaskFile);
 
         // 调用识别接口
@@ -627,7 +645,7 @@ export default function Home() {
             <div className="flex justify-center">
               <img
                 src={`data:image/png;base64,${previewImage}`}
-                alt="去除背景后的图片"
+                alt={selectionMode === 'box' ? '去除背景后的图片' : '识别预览图片'}
                 className="max-w-full h-auto border border-gray-200 rounded"
                 style={{ maxHeight: '200px' }}
               />
