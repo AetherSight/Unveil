@@ -196,6 +196,7 @@ export default function Home() {
     setSelectedSegmentPart(null);
     setSegmentState('idle');
     setPreviewImage(null);
+    setSelectedPart(null); // 清除选中的部位
   }, []);
 
   // 包装 setBrushMaskFile，当开始新的涂抹操作时清除分割结果
@@ -207,9 +208,13 @@ export default function Home() {
       setSelectedSegmentPart(null);
       setSegmentState('idle');
     }
-    // 清除去除背景后的图片
+    // 清除预览图片和选中的部位
     if (file === null) {
       setPreviewImage(null);
+      setSelectedPart(null);
+    } else {
+      // 当有新的选择时，清除之前选中的部位，引导用户重新选择
+      setSelectedPart(null);
     }
   }, [segmentResults]);
 
