@@ -15,6 +15,7 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
   const [hoveredRank, setHoveredRank] = useState<number | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<Record<number | string, 'sending' | 'success'>>({});
   const [popupRank, setPopupRank] = useState<number | null>(null); // 当前显示popup的装备rank
+  const [failedAngles, setFailedAngles] = useState<Set<string>>(new Set()); // 记录加载失败的角度
   
   if (results.length === 0) {
     return null;
@@ -264,11 +265,15 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                 <div className="space-y-3">
                   {/* 渲染图 - 多个角度 */}
                   {currentId && (
-                    <div className="space-y-2">
-                      <div className="flex justify-center gap-2 flex-wrap">
-                        {['h0', 'h45', 'h225'].map((angle) => (
-                          <div key={angle} className="flex flex-col items-center gap-1">
-                            <div className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                    <div className="flex justify-center gap-2">
+                      {['h0', 'h45', 'h225'].map((angle) => {
+                        const imageKey = `${currentId}-${angle}`;
+                        const hasFailed = failedAngles.has(imageKey);
+                        return (
+                          <div key={angle} className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
+                            {hasFailed && angle !== 'h0' ? (
+                              <span className="text-xs text-gray-400 font-light">文件不存在</span>
+                            ) : (
                               <Image
                                 src={getRenderUrl(currentId, currentName, angle) || ''}
                                 alt={`${currentName} 渲染图 ${angle}`}
@@ -278,13 +283,15 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.style.display = 'none';
+                                  if (angle !== 'h0') {
+                                    setFailedAngles(prev => new Set(prev).add(imageKey));
+                                  }
                                 }}
                               />
-                            </div>
-                            <span className="text-xs text-gray-500 font-light">{angle}</span>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
                   )}
                   {/* 装备信息 */}
