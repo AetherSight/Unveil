@@ -14,6 +14,7 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
   const [selectedRank, setSelectedRank] = useState<number | null>(null);
   const [hoveredRank, setHoveredRank] = useState<number | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<Record<number | string, 'sending' | 'success'>>({});
+  const [popupRank, setPopupRank] = useState<number | null>(null); // 当前显示popup的装备rank
   
   if (results.length === 0) {
     return null;

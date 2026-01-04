@@ -8,12 +8,18 @@ export interface SegmentResponse {
   hands?: string;
 }
 
+export interface SameModelGear {
+  id: string;
+  name: string;
+}
+
 export interface PredictionResult {
   rank: number;
   label: string;
   score: number;
   name?: string;
   id?: string;
+  same_model_gears?: SameModelGear[];
 }
 
 export interface PredictResponse {
