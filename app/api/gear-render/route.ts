@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const gearId = searchParams.get('id');
     const gearName = searchParams.get('name');
+    const angle = searchParams.get('angle') || 'h0'; // 默认角度 h0，支持 h0, h45, h225
 
     // 验证参数
     if (!gearId || !gearName) {
@@ -35,10 +36,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 验证角度格式，只允许 h0, h45, h225
+    if (!/^h(0|45|225)$/.test(angle)) {
+      return NextResponse.json(
+        { message: '无效的角度格式，只支持 h0, h45, h225' },
+        { status: 400 }
+      );
+    }
+
     // 构建文件路径
-    // 格式：名称_id\id_h0_p0.png
+    // 格式：名称_id\id_h0_p0.png 或 id_h45_p0.png 或 id_h225_p0.png
     const folderName = `${gearName}_${gearId}`;
-    const fileName = `${gearId}_h0_p0.png`;
+    const fileName = `${gearId}_${angle}_p0.png`;
     
     // 规范化路径，防止路径遍历
     const folderPath = join(RENDER_BASE_DIR, folderName);

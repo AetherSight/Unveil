@@ -42,9 +42,9 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
     return `/icon/${id}`;
   };
 
-  const getRenderUrl = (id: string, name: string) => {
+  const getRenderUrl = (id: string, name: string, angle: string = 'h0') => {
     if (!id || !name) return null;
-    const params = new URLSearchParams({ id, name });
+    const params = new URLSearchParams({ id, name, angle });
     return `/api/gear-render?${params.toString()}`;
   };
 
