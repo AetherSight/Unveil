@@ -358,8 +358,8 @@ export default function Home() {
       }
       
       lastProcessedRef.current = {
-        imageKey: `${selectedImage?.name}-${selectedImage?.size}-${selectedImage?.lastModified}`,
-        cropAreaKey: `brush-${brushMaskFile.size}-${brushMaskFile.lastModified}`,
+        imageKey,
+        cropAreaKey: processKey,
         boxThreshold,
         textThreshold,
       };
