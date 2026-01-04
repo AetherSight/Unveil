@@ -394,8 +394,9 @@ export default function Home() {
                 {brushMaskFile && (
                   <div className="mt-1">
                     <div className="bg-white/95 border border-gray-200 rounded-lg p-2 shadow-lg">
-                      <div className="text-xs text-gray-600 font-light mb-2 text-center">选择部位</div>
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 font-light whitespace-nowrap">选择部位</span>
+                        <div className="flex gap-1 flex-1">
                         {(['head', 'upper', 'lower', 'shoes', 'hands'] as const).map((part) => {
                           const partLabelsMap: Record<typeof part, string> = {
                             head: '头',
@@ -454,6 +455,7 @@ export default function Home() {
                             </button>
                           );
                         })}
+                        </div>
                       </div>
                     </div>
                   </div>
