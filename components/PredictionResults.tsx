@@ -276,6 +276,7 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
             </span>
           </div>
         </div>
+        )}
       </div>
 
       {/* 同模型装备 Popup */}
