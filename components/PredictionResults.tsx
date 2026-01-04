@@ -262,21 +262,28 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
               {/* 当前装备 */}
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <div className="space-y-3">
-                  {/* 渲染图 */}
+                  {/* 渲染图 - 多个角度 */}
                   {currentId && (
-                    <div className="flex justify-center">
-                      <div className="relative w-48 h-48 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                        <Image
-                          src={getRenderUrl(currentId, currentName) || ''}
-                          alt={`${currentName} 渲染图`}
-                          fill
-                          className="object-contain"
-                          unoptimized
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                          }}
-                        />
+                    <div className="space-y-2">
+                      <div className="flex justify-center gap-2 flex-wrap">
+                        {['h0', 'h45', 'h225'].map((angle) => (
+                          <div key={angle} className="flex flex-col items-center gap-1">
+                            <div className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                              <Image
+                                src={getRenderUrl(currentId, currentName, angle) || ''}
+                                alt={`${currentName} 渲染图 ${angle}`}
+                                fill
+                                className="object-contain"
+                                unoptimized
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-500 font-light">{angle}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
