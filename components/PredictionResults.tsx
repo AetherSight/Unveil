@@ -42,6 +42,12 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
     return `/icon/${id}`;
   };
 
+  const getRenderUrl = (id: string, name: string) => {
+    if (!id || !name) return null;
+    const params = new URLSearchParams({ id, name });
+    return `/api/gear-render?${params.toString()}`;
+  };
+
   const handleFeedback = async (label: string, rank: number | string) => {
     if (!croppedImageFile || selectedRank !== null) {
       return;
@@ -259,89 +265,132 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
               
               {/* 当前装备 */}
               <div className="mb-4 pb-4 border-b border-gray-200">
-                <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
-                  {currentIconUrl ? (
-                    <div className="relative w-12 h-12 flex-shrink-0">
-                      <Image
-                        src={currentIconUrl}
-                        alt={currentName}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-500 text-sm font-light">
-                      {result.rank}
+                <div className="space-y-3">
+                  {/* 渲染图 */}
+                  {currentId && (
+                    <div className="flex justify-center">
+                      <div className="relative w-48 h-48 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                        <Image
+                          src={getRenderUrl(currentId, currentName) || ''}
+                          alt={`${currentName} 渲染图`}
+                          fill
+                          className="object-contain"
+                          unoptimized
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      </div>
                     </div>
                   )}
-                  <div className="flex-1">
-                    <div className="text-gray-800 font-light">{currentName}</div>
-                    {currentId && (
-                      <span className="text-xs text-gray-400 font-light">ID: {currentId}</span>
+                  {/* 装备信息 */}
+                  <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                    {currentIconUrl ? (
+                      <div className="relative w-12 h-12 flex-shrink-0">
+                        <Image
+                          src={currentIconUrl}
+                          alt={currentName}
+                          fill
+                          className="object-contain"
+                          unoptimized
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-500 text-sm font-light">
+                        {result.rank}
+                      </div>
                     )}
+                    <div className="flex-1">
+                      <div className="text-gray-800 font-light">{currentName}</div>
+                      {currentId && (
+                        <span className="text-xs text-gray-400 font-light">ID: {currentId}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        window.open(getWikiUrl(currentName), '_blank', 'noopener,noreferrer');
+                      }}
+                      className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                      title="查看 Wiki"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      window.open(getWikiUrl(currentName), '_blank', 'noopener,noreferrer');
-                    }}
-                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                    title="查看 Wiki"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </button>
                 </div>
               </div>
 
               {/* 同模型装备列表 */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {result.same_model_gears.map((gear) => {
                   const gearIconUrl = getIconUrl(gear.id);
+                  const gearRenderUrl = getRenderUrl(gear.id, gear.name);
                   return (
                     <div
                       key={gear.id}
-                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="space-y-2"
                     >
-                      {gearIconUrl ? (
-                        <div className="relative w-12 h-12 flex-shrink-0">
-                          <Image
-                            src={gearIconUrl}
-                            alt={gear.name}
-                            fill
-                            className="object-contain"
-                            unoptimized
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-500 text-sm font-light">
-                          ?
+                      {/* 渲染图 */}
+                      {gearRenderUrl && (
+                        <div className="flex justify-center">
+                          <div className="relative w-48 h-48 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                            <Image
+                              src={gearRenderUrl}
+                              alt={`${gear.name} 渲染图`}
+                              fill
+                              className="object-contain"
+                              unoptimized
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          </div>
                         </div>
                       )}
-                      <div className="flex-1">
-                        <div className="text-gray-800 font-light">{gear.name}</div>
-                        <span className="text-xs text-gray-400 font-light">ID: {gear.id}</span>
+                      {/* 装备信息 */}
+                      <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        {gearIconUrl ? (
+                          <div className="relative w-12 h-12 flex-shrink-0">
+                            <Image
+                              src={gearIconUrl}
+                              alt={gear.name}
+                              fill
+                              className="object-contain"
+                              unoptimized
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-500 text-sm font-light">
+                            ?
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="text-gray-800 font-light">{gear.name}</div>
+                          <span className="text-xs text-gray-400 font-light">ID: {gear.id}</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            window.open(getWikiUrl(gear.name), '_blank', 'noopener,noreferrer');
+                          }}
+                          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                          title="查看 Wiki"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </button>
                       </div>
-                      <button
-                        onClick={() => {
-                          window.open(getWikiUrl(gear.name), '_blank', 'noopener,noreferrer');
-                        }}
-                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                        title="查看 Wiki"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </button>
                     </div>
                   );
                 })}
