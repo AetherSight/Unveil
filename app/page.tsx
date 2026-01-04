@@ -500,11 +500,10 @@ export default function Home() {
                   </div>
                 </div>
                 
-                {/* 部位选择按钮（涂抹或框选模式下，显示在图片下方） */}
-                {brushMaskFile && (
-                  <div className="mt-1">
-                    <div className="bg-white/95 border border-gray-200 rounded-lg p-2 shadow-lg">
-                      <div className="flex gap-1">
+                {/* 部位选择按钮（持续显示在图片下方） */}
+                <div className="mt-1">
+                  <div className="bg-white/95 border border-gray-200 rounded-lg p-2 shadow-lg">
+                    <div className="flex gap-1">
                         {(['head', 'upper', 'hands', 'lower', 'shoes'] as const).map((part) => {
                           const partLabelsMap: Record<typeof part, string> = {
                             head: '头部',
@@ -563,7 +562,6 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                )}
               </>
             ) : null}
             
@@ -660,24 +658,28 @@ export default function Home() {
 
             {imagePreview ? (
               <>
-                {/* 分割结果区域 */}
-                {segmentResults && (
-                  <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-                    <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
-                    {segmentState === 'segmenting' ? (
-                      <div className="flex items-center justify-center py-12">
-                        <LoadingSpinner size="sm" />
-                        <span className="ml-3 text-sm text-gray-400 font-light">分割中...</span>
-                      </div>
-                    ) : (
-                      <SegmentResults 
-                        results={segmentResults} 
-                        selectedPart={selectedSegmentPart}
-                        onPartClick={handleSegmentPartClick}
-                      />
-                    )}
-                  </div>
-                )}
+                {/* 分割结果区域 - 持续显示 */}
+                <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
+                  <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
+                  {segmentState === 'segmenting' ? (
+                    <div className="flex items-center justify-center py-12">
+                      <LoadingSpinner size="sm" />
+                      <span className="ml-3 text-sm text-gray-400 font-light">分割中...</span>
+                    </div>
+                  ) : segmentResults ? (
+                    <SegmentResults 
+                      results={segmentResults} 
+                      selectedPart={selectedSegmentPart}
+                      onPartClick={handleSegmentPartClick}
+                    />
+                  ) : (
+                    <SegmentResults 
+                      results={null} 
+                      selectedPart={selectedSegmentPart}
+                      onPartClick={handleSegmentPartClick}
+                    />
+                  )}
+                </div>
                 
                 {/* 识别结果区域 */}
                 <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
