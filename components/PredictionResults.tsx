@@ -11,7 +11,7 @@ interface PredictionResultsProps {
 }
 
 export default function PredictionResults({ results, croppedImageFile }: PredictionResultsProps) {
-  const [selectedRank, setSelectedRank] = useState<number | null>(null);
+  const [selectedRank, setSelectedRank] = useState<number | string | null>(null);
   const [hoveredRank, setHoveredRank] = useState<number | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<Record<number | string, 'sending' | 'success'>>({});
   const [popupRank, setPopupRank] = useState<number | null>(null); // 当前显示popup的装备rank
