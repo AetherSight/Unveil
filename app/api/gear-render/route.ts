@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
     const folderPath = join(RENDER_BASE_DIR, folderName);
     const filePath = join(folderPath, fileName);
 
+    // 输出文件路径用于调试
+    console.log('渲染图文件路径:', filePath);
+
     // 验证路径是否在允许的目录内（防止路径遍历攻击）
     const normalizedBaseDir = join(RENDER_BASE_DIR).toLowerCase();
     const normalizedFilePath = join(filePath).toLowerCase();
