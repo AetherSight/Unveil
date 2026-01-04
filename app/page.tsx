@@ -292,10 +292,6 @@ export default function Home() {
       return;
     }
 
-    // 使用存储的模式状态
-    const currentMode = selectionMode === 'box' ? '框选' : '涂抹';
-    const shouldRemoveBackground = selectionMode === 'box' ? 'Y' : 'N';
-    console.log(`当前被激活的模式：${currentMode}，那么我应该调用remove background吗？${shouldRemoveBackground}`);
 
     setError(null);
     setSelectedPart(part);
