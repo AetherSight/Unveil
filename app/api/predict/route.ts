@@ -40,8 +40,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Predict API error:', error);
+    let errorMessage = '识别失败';
+    
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      errorMessage = `无法连接到后端服务 (${REVELATION_API})，请确认服务是否已启动`;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : '识别失败' },
+      { message: errorMessage },
       { status: 500 }
     );
   }

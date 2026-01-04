@@ -12,26 +12,32 @@ import ImageUpload from '@/components/ImageUpload';
 import ImageWithCrop from '@/components/ImageWithCrop';
 import PredictionResults from '@/components/PredictionResults';
 import PredictionResultsSkeleton from '@/components/PredictionResultsSkeleton';
+import SegmentResults, { partLabels } from '@/components/SegmentResults';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import SegmentResults from '@/components/SegmentResults';
-import { segmentImage, predictEquipment } from '@/lib/api';
+import { predictEquipment, segmentImage } from '@/lib/api';
 import type { PredictionResult, SegmentResponse } from '@/lib/types';
 
-type ProcessingState = 'idle' | 'segmenting' | 'predicting' | 'complete' | 'error';
+type ProcessingState = 'idle' | 'predicting' | 'complete' | 'error';
+type ResultView = 'prediction' | 'segment';
 
 export default function Home() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [predictionResults, setPredictionResults] = useState<PredictionResult[]>([]);
-  const [segmentResults, setSegmentResults] = useState<SegmentResponse | null>(null);
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [cropArea, setCropArea] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [croppedImageFile, setCroppedImageFile] = useState<File | null>(null);
   const [boxThreshold, setBoxThreshold] = useState(0.3);
   const [textThreshold, setTextThreshold] = useState(0.25);
-  const [topK, setTopK] = useState(5);
+  const [displayCount, setDisplayCount] = useState(5);
   const [isClient, setIsClient] = useState(false);
+  const [selectedPart, setSelectedPart] = useState<'head' | 'upper' | 'lower' | 'shoes' | 'hands' | null>(null);
+  const [brushMaskFile, setBrushMaskFile] = useState<File | null>(null);
+  const [segmentResults, setSegmentResults] = useState<SegmentResponse | null>(null);
+  const [segmentState, setSegmentState] = useState<'idle' | 'segmenting' | 'complete' | 'error'>('idle');
+  const [resultView, setResultView] = useState<ResultView>('prediction');
+  const [selectedSegmentPart, setSelectedSegmentPart] = useState<keyof SegmentResponse | null>(null);
   const lastProcessedRef = useRef<{
     imageKey: string | null;
     cropAreaKey: string | null;
@@ -52,7 +58,7 @@ export default function Home() {
       setTextThreshold(parseFloat(savedTextThreshold));
     }
     if (savedTopK) {
-      setTopK(parseInt(savedTopK));
+      setDisplayCount(parseInt(savedTopK));
     }
   }, []);
 
@@ -65,8 +71,8 @@ export default function Home() {
   }, [textThreshold]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.topK, topK.toString());
-  }, [topK]);
+    localStorage.setItem(STORAGE_KEYS.topK, displayCount.toString());
+  }, [displayCount]);
 
   const handleImageSelect = useCallback((file: File) => {
     setSelectedImage(file);
@@ -112,16 +118,25 @@ export default function Home() {
   }, [handleImageSelect]);
 
   const handleProcess = useCallback(async () => {
-    if (!selectedImage || !imagePreview) return;
+    if (!selectedImage || !imagePreview || !selectedPart) {
+      setError('请先选择要识别的部位');
+      return;
+    }
+
+    // 涂抹模式：使用mask文件
+    if (!brushMaskFile) {
+      setError('请先涂抹选择图片区域');
+      return;
+    }
+    const imageToProcess: File = brushMaskFile;
+    const processKey = `brush-${brushMaskFile.size}-${brushMaskFile.lastModified}`;
 
     const imageKey = `${selectedImage.name}-${selectedImage.size}-${selectedImage.lastModified}`;
-    const cropAreaKey = cropArea 
-      ? `${cropArea.x}-${cropArea.y}-${cropArea.width}-${cropArea.height}` 
-      : 'no-crop';
+    const fullKey = `${imageKey}-${processKey}`;
 
     if (
       lastProcessedRef.current.imageKey === imageKey &&
-      lastProcessedRef.current.cropAreaKey === cropAreaKey &&
+      lastProcessedRef.current.cropAreaKey === processKey &&
       lastProcessedRef.current.boxThreshold === boxThreshold &&
       lastProcessedRef.current.textThreshold === textThreshold &&
       processingState === 'complete'
@@ -130,71 +145,20 @@ export default function Home() {
     }
 
     setError(null);
-    setProcessingState('segmenting');
+    setProcessingState('predicting');
 
     try {
-      let imageToProcess: File = selectedImage;
-      setCroppedImageFile(selectedImage);
 
-      if (cropArea && cropArea.width >= 10 && cropArea.height >= 10) {
-        const img = document.createElement('img');
-        img.crossOrigin = 'anonymous';
-        img.src = imagePreview;
-        await new Promise<void>((resolve, reject) => {
-          if (img.complete) {
-            resolve();
-          } else {
-            img.onload = () => resolve();
-            img.onerror = () => reject(new Error('图片加载失败'));
-          }
-        });
+      setCroppedImageFile(imageToProcess);
 
-        const canvas = document.createElement('canvas');
-        canvas.width = cropArea.width;
-        canvas.height = cropArea.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(
-            img,
-            cropArea.x,
-            cropArea.y,
-            cropArea.width,
-            cropArea.height,
-            0,
-            0,
-            cropArea.width,
-            cropArea.height
-          );
-          const blob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob(resolve, 'image/png');
-          });
-          if (blob) {
-            imageToProcess = new File([blob], 'cropped-image.png', { type: 'image/png' });
-            setCroppedImageFile(imageToProcess);
-          }
-        }
-      }
-
-      const segmentData = await segmentImage(imageToProcess, boxThreshold, textThreshold);
-      setSegmentResults(segmentData);
-      setProcessingState('predicting');
-
-      if (!segmentData.upper) {
-        throw new Error('未能分割出上身部位');
-      }
-
-      const base64 = segmentData.upper;
-      const response = await fetch(`data:image/png;base64,${base64}`);
-      const blob = await response.blob();
-      const file = new File([blob], 'upper.png', { type: 'image/png' });
-
-      const predictData = await predictEquipment(file, topK);
+      // 直接调用预测接口
+      const predictData = await predictEquipment(imageToProcess, 10);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
       
       lastProcessedRef.current = {
         imageKey,
-        cropAreaKey,
+        cropAreaKey: processKey,
         boxThreshold,
         textThreshold,
       };
@@ -202,25 +166,158 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '处理失败');
       setProcessingState('error');
     }
-  }, [selectedImage, imagePreview, cropArea, boxThreshold, textThreshold, topK, processingState]);
+  }, [selectedImage, imagePreview, brushMaskFile, selectedPart, boxThreshold, textThreshold, processingState]);
 
   const handleReset = useCallback(() => {
     setSelectedImage(null);
     setImagePreview(null);
     setPredictionResults([]);
-    setSegmentResults(null);
+    setBrushMaskFile(null);
     setProcessingState('idle');
     setError(null);
     setCroppedImageFile(null);
+    setSegmentResults(null);
+    setSegmentState('idle');
+    setResultView('prediction');
+    setSelectedSegmentPart(null);
     lastProcessedRef.current = { imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null };
   }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setCropArea(null);
+    setBrushMaskFile(null);
+    // 清除分割结果
+    setSegmentResults(null);
+    setSelectedSegmentPart(null);
+    setSegmentState('idle');
+  }, []);
+
+  // 包装 setBrushMaskFile，当开始新的涂抹操作时清除分割结果
+  const handleBrushMaskChange = useCallback((file: File | null) => {
+    setBrushMaskFile(file);
+    // 当开始新的涂抹操作时（file 不为 null），清除分割结果
+    if (file !== null && segmentResults) {
+      setSegmentResults(null);
+      setSelectedSegmentPart(null);
+      setSegmentState('idle');
+    }
+  }, [segmentResults]);
+
+  const handleSegment = useCallback(async () => {
+    if (!selectedImage || !imagePreview) {
+      setError('请先上传图片');
+      return;
+    }
+
+    setError(null);
+    setSegmentState('segmenting');
+    setSelectedSegmentPart(null);
+    setPredictionResults([]);
+    setCroppedImageFile(null);
+
+    try {
+      const segmentData = await segmentImage(selectedImage, boxThreshold, textThreshold);
+      setSegmentResults(segmentData);
+      setSegmentState('complete');
+      setResultView('segment');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '分割失败');
+      setSegmentState('error');
+    }
+  }, [selectedImage, imagePreview, boxThreshold, textThreshold]);
+
+  // 将 base64 转换为 File
+  const base64ToFile = useCallback((base64: string, filename: string, mimeType: string = 'image/png'): File => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    return new File([blob], filename, { type: mimeType });
+  }, []);
+
+  // 处理点击分割部位
+  const handleSegmentPartClick = useCallback(async (part: keyof SegmentResponse, base64: string) => {
+    if (!segmentResults || !base64) return;
+
+    // 目前只支持身体部位识别
+    if (part !== 'upper') {
+      setError('目前仅支持识别身体部位，其他部位暂不支持');
+      return;
+    }
+
+    setError(null);
+    setSelectedSegmentPart(part);
+    setProcessingState('predicting');
+    setPredictionResults([]);
+    setResultView('segment');
+
+    try {
+      // 将 base64 转换为 File
+      const partFile = base64ToFile(base64, `${part}.png`);
+      setCroppedImageFile(partFile);
+
+      // 调用识别接口
+      const predictData = await predictEquipment(partFile, 10);
+      setPredictionResults(predictData.results);
+      setProcessingState('complete');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '识别失败');
+      setProcessingState('error');
+    }
+  }, [segmentResults, base64ToFile]);
+
+  // 处理点击部位按钮（涂抹或框选模式下）
+  const handlePartButtonClick = useCallback(async (part: 'head' | 'upper' | 'lower' | 'shoes' | 'hands') => {
+    if (!brushMaskFile) {
+      setError('请先选择图片区域');
+      return;
+    }
+
+    // 目前只支持身体部位识别
+    if (part !== 'upper') {
+      setError('目前仅支持识别身体部位，其他部位暂不支持');
+      return;
+    }
+
+    setError(null);
+    setSelectedPart(part);
+    setProcessingState('predicting');
+    setPredictionResults([]);
+    setCroppedImageFile(brushMaskFile);
+
+    try {
+      // 调用识别接口
+      const predictData = await predictEquipment(brushMaskFile, 10);
+      setPredictionResults(predictData.results);
+      setProcessingState('complete');
+      
+      lastProcessedRef.current = {
+        imageKey: `${selectedImage?.name}-${selectedImage?.size}-${selectedImage?.lastModified}`,
+        cropAreaKey: `brush-${brushMaskFile.size}-${brushMaskFile.lastModified}`,
+        boxThreshold,
+        textThreshold,
+      };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '识别失败');
+      setProcessingState('error');
+    }
+  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold]);
 
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-light text-gray-800 mb-2">Unveil</h1>
-          <p className="text-sm text-gray-500 font-light">FFXIV 装备识别系统</p>
+          <h1 className="text-3xl font-light text-gray-800 mb-4">AetherSight</h1>
+          <div className="flex items-center justify-center gap-2">
+            <div className="w-48 h-px bg-gradient-to-r from-transparent via-gray-300 to-gray-300"></div>
+            <svg className="w-3 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4L16 12L12 20L8 12L12 4Z" />
+            </svg>
+            <div className="w-48 h-px bg-gradient-to-l from-transparent via-gray-300 to-gray-300"></div>
+          </div>
         </div>
 
         {error && (
@@ -232,71 +329,152 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="flex flex-col space-y-4">
             {!imagePreview ? (
+              <ImageUpload
+                onImageSelect={handleImageSelect}
+                disabled={processingState === 'predicting'}
+              />
+            ) : null}
+            
+            {imagePreview ? (
               <>
-                <ImageUpload
-                  onImageSelect={handleImageSelect}
-                  disabled={processingState === 'segmenting' || processingState === 'predicting'}
-                />
+                <div className="relative">
+                  <ImageWithCrop
+                    imageSrc={imagePreview}
+                    onCropAreaChange={handleCropAreaChange}
+                    onBrushMaskChange={handleBrushMaskChange}
+                    cropArea={cropArea}
+                  />
+                  <div className="absolute top-2 right-2 flex flex-col gap-2 z-20">
+                    <button
+                      onClick={handleReset}
+                      disabled={processingState === 'predicting'}
+                      className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg-white border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="删除图片"
+                    >
+                      <svg
+                        className="w-4 h-4 text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                    {(brushMaskFile || cropArea) && (
+                      <button
+                        onClick={handleClearSelection}
+                        disabled={processingState === 'predicting'}
+                        className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg-white border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="清除选择"
+                      >
+                        <svg
+                          className="w-4 h-4 text-gray-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {/* 部位选择按钮（涂抹或框选模式下，右下角） */}
+                  {brushMaskFile && (
+                    <div className="absolute bottom-2 right-2 z-20">
+                      <div className="bg-white/95 border border-gray-200 rounded-lg p-2 shadow-lg">
+                        <div className="text-xs text-gray-600 font-light mb-2 text-center">选择部位</div>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(['head', 'upper', 'lower', 'shoes', 'hands'] as const).map((part) => {
+                            const partLabelsMap: Record<typeof part, string> = {
+                              head: '头',
+                              upper: '身体',
+                              lower: '下身',
+                              shoes: '鞋子',
+                              hands: '手',
+                            };
+                            const isEnabled = part === 'upper';
+                            const isSelected = selectedPart === part;
+                            return (
+                              <button
+                                key={part}
+                                onClick={() => isEnabled && handlePartButtonClick(part)}
+                                disabled={!isEnabled || processingState === 'predicting'}
+                                className={`w-12 h-12 flex flex-col items-center justify-center rounded text-[10px] font-light transition-colors ${
+                                  isSelected
+                                    ? 'bg-blue-500 text-white'
+                                    : isEnabled
+                                      ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                      : 'bg-gray-50 text-gray-400 cursor-not-allowed opacity-50'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                title={!isEnabled ? '暂不支持' : partLabelsMap[part]}
+                              >
+                                {part === 'head' ? (
+                                  <svg className="w-5 h-5 opacity-80" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12,2a8,8,0,0,0-8,8V20l4,2,2-2V17L8,16V11l4,2,4-2v5l-2,1v3l2,2,4-2V10A8,8,0,0,0,12,2Zm2,6H10a1,1,0,0,1,0-2h4a1,1,0,0,1,0,2Z"/>
+                                  </svg>
+                                ) : part === 'shoes' ? (
+                                  <svg className="w-5 h-5 opacity-80" fill="currentColor" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M128 22.781c-11.101 10.941-19.822 27.6-26.076 41.203 6.044 20.063 11.083 40.869 27.539 54.926 18.862-14.015 27.05-33.752 35.187-56.351C154.631 51.155 144.412 34.368 128 22.78zm256 0c-16.412 11.587-26.631 28.374-36.65 39.778 8.137 22.599 16.325 42.336 35.187 56.351 16.456-14.057 21.495-34.863 27.54-54.926C403.821 50.381 395.1 33.722 384 22.781zM222.23 46.104c-11.546 2.749-24.948 7.229-37.04 12.68-8.622 28.9-21.924 55.363-45.965 74.734l16.55 177.107-19.933-8.438-14.61-167.787c-16.163-16.006-28.001-43.023-38.39-71.285-3.545-2.304-7.083-4.15-10.621-5.424 6.237 82.926 25.341 186.732 47.006 274.592 2.544-1.159 5.746-2.4 8.724-3.459 29.464 7.318 56.995 29.357 81.848 53.067C192 272 256 160 222.23 46.104zm67.54 0C256 160 320 272 302.2 381.89c24.853-23.71 52.384-45.75 81.848-53.067 2.978 1.06 6.18 2.3 8.724 3.46 21.665-87.86 40.77-191.667 47.006-274.593-3.538 1.274-7.076 3.12-10.62 5.424-10.39 28.262-22.228 55.28-38.391 71.285l-14.61 167.787-19.933 8.438 16.55-177.107c-24.04-19.37-37.343-45.834-45.964-74.735-12.093-5.45-25.495-9.93-37.041-12.68zM129.004 347.83c-13.31 5.672-27.915 18.355-33.014 34.666 23.725 4.679 52.808 18.407 75.524 40.389l3.947 26.867 33.467-12.074-1.33-29.082c-19.75-28.701-51.073-52.92-78.594-60.766zm253.992 0c-27.52 7.846-58.843 32.065-78.594 60.766l-1.33 29.082 33.467 12.074 3.947-26.867c22.716-21.982 51.8-35.71 75.524-40.389-5.099-16.311-19.704-28.994-33.014-34.666zM90.69 399.703l-52.257 39.272c-10.312 15.251-12.923 32.609-8.657 47.158 52.559 9.293 88.252-3.287 129.043-25.838l-4.275-29.084c-14.703-15.135-33.665-26.354-63.854-31.508zm330.622 0c-30.189 5.154-49.151 16.373-63.854 31.508l-4.275 29.084c40.791 22.55 76.484 35.131 129.043 25.838 4.266-14.55 1.655-31.907-8.657-47.158l-52.257-39.272z"/>
+                                  </svg>
+                                ) : part === 'hands' ? (
+                                  <svg className="w-5 h-5 opacity-80" fill="currentColor" viewBox="0 0 45.975 45.975" xmlns="http://www.w3.org/2000/svg">
+                                    <g>
+                                      <path d="M29.142,0c-7.181,0-13,5.82-13,13v6.729l-1.184-1.199c-2.522-2.554-6.638-2.579-9.192-0.056c-2.554,2.522-2.579,6.625-0.057,9.18l7.244,7.32h29.189V13C42.142,5.82,36.321,0,29.142,0z"/>
+                                      <path d="M13.141,42.057c0,2.164,1.753,3.918,3.917,3.918h21.167c2.164,0,3.917-1.754,3.917-3.918v-4.082h-29V42.057z"/>
+                                    </g>
+                                  </svg>
+                                ) : part === 'lower' ? (
+                                  <svg className="w-5 h-5 opacity-80" fill="currentColor" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M498 250l-112 23 12-3q15-4 30-10 21-8 37-19-25-2-76-5l-46-2h158v-81h-33l3-29h30l-3-15-67-5q-75-5-115-11-22-3-34-2-10 0-12.5 2.5T269 99l1 3 25 15v8l-18 8 15 18-25 37-33 8v31l33 22-6 76 13 50q14 61 24 114 11 24 22 42l8 13-21 15 21 20-2 6q-3 8-5 19-2 15-1 33 2 24 8 52 8 45 23 90 6 17 8 25 2 12 2 25 0 23-12 41-6 9-12 13l8 3q10 4 23 6 18 2 38 1 26-2 54-9-13-13-22-35-5-10-7-18l8-59q9-64 17-90 5-19 4-44-1-15-5-38-3-16-2-19 2-4 10-10l8-5-15-26 12-55 5-90q6-91 12-99t6-16q0-3-2-6zm2 0l112 23-12-3q-15-4-30-10-21-8-37-19 40-4 122-7H497v-81h33l-3-29h-30l3-15 67-5q75-5 115-11 22-3 34-2 10 0 12.5 2.5t.5 5.5l-1 3-25 15v8l18 8-15 18 25 37 33 8v31l-33 22 6 76-13 50q-14 61-24 114-18 38-30 55l21 15-21 20 2 6q3 8 5 19 2 15 1 33-2 24-8 52-8 45-23 90-6 17-8 25-2 12-2 25 0 16 6 30 4 10 12 18l6 6-8 3q-10 4-23 6-18 2-38 1-26-2-54-9 10-10 17-23 5-10 9-21l3-9-8-59q-9-64-17-90-5-19-4-44 1-15 5-38 3-16 2-19-3-6-18-15l15-26-12-55-5-90q-6-91-12-99-4-6-5-10.5t0-8.5l1-3zm-17-121h36v17h-36v-17z"/>
+                                  </svg>
+                                ) : part === 'upper' ? (
+                                  <svg className="w-5 h-5 opacity-80" fill="currentColor" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M156.7 25.83L89 39.38c-.1 58.57-1.74 119.32-43.49 167.22C104.4 246.5 189 260.7 247 248.8v-99L108.3 88.22l7.4-16.44L256 134.2l140.3-62.42 7.4 16.44L265 149.8v99c58 11.9 142.6-2.3 201.5-42.2-41.8-47.9-43.4-108.65-43.5-167.22l-67.7-13.55c-12.9 13.88-20.6 28.15-32.9 40.53C308.9 79.78 289.5 89 256 89c-33.5 0-52.9-9.22-66.4-22.64-12.3-12.38-20-26.65-32.9-40.53zM53.88 232.9C75.96 281 96.07 336.6 102.7 392.8l65 22.8c4.2-52.7 28.2-104 63.7-146.1-55.1 6.3-122.7-5.8-177.52-36.6zm404.22 0c-54.8 30.8-122.4 42.9-177.5 36.6 35.5 42.1 59.5 93.4 63.7 146.1l65.2-22.9c6.6-56.8 26.6-111.8 48.6-159.8zM256 269c-40.5 43.1-67.7 97.9-70.7 152.7l61.7 21.6V336h18v107.3l61.7-21.6c-3.1-54.8-30.2-109.6-70.7-152.7zm151.7 143.4L297 451.1v18.8l110.2-44.1c.1-4.5.3-8.9.5-13.4zm-303.3.1c.3 4.5.4 8.9.5 13.4l110.1 44v-18.7l-110.6-38.7zM279 457.4l-23 8.1-23-8v19.6l23 9.2 23-9.2v-19.7z"/>
+                                  </svg>
+                                ) : (
+                                  <img
+                                    src={`/${part}.png`}
+                                    alt={partLabelsMap[part]}
+                                    className="w-5 h-5 object-contain opacity-80"
+                                  />
+                                )}
+                                <span className="mt-0.5">{partLabelsMap[part]}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* 使用说明和显示结果数量 - 显示在图片下方 */}
                 <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm text-gray-700 font-light">
-                        检测框阈值
-                      </label>
-                      <span className="text-xs text-gray-500 font-light">
-                        {boxThreshold.toFixed(2)}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.2"
-                      max="0.5"
-                      step="0.05"
-                      value={boxThreshold}
-                      onChange={(e) => setBoxThreshold(parseFloat(e.target.value))}
-                      disabled={processingState === 'segmenting' || processingState === 'predicting'}
-                      className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${(boxThreshold - 0.2) / 0.3 * 100}%, #e5e7eb ${(boxThreshold - 0.2) / 0.3 * 100}%, #e5e7eb 100%)`
-                      }}
-                    />
-                    <p className="text-xs text-gray-400 font-light">
-                      控制检测框的识别敏感度，值越高越严格，可能漏检；值越低越宽松，可能误检
-                    </p>
+                  <div className="space-y-2 pb-3 border-b border-gray-200">
+                    <h3 className="text-sm text-gray-700 font-medium mb-2">使用说明</h3>
+                    <ol className="space-y-1.5 text-xs text-gray-600 font-light list-decimal list-inside">
+                      <li>使用涂抹工具或剪裁工具选择图片中的部位，然后在弹出的部位选择框中选择要识别的部位（仅支持身体），识别结果将显示在右侧。</li>
+                      <li>点击下方的"自动分割"按钮可以自动识别并分割图片中的各个部位，但自动分割的结果可能不够准确，建议优先使用手动选择。</li>
+                      <li>如果识别结果中找到了匹配的装备，请点击右侧装备卡片上的图标进行反馈，这将帮助我们持续提升识别准确率。</li>
+                    </ol>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-sm text-gray-700 font-light">
-                        文本识别阈值
+                        显示结果数量
                       </label>
                       <span className="text-xs text-gray-500 font-light">
-                        {textThreshold.toFixed(2)}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="0.9"
-                      step="0.05"
-                      value={textThreshold}
-                      onChange={(e) => setTextThreshold(parseFloat(e.target.value))}
-                      disabled={processingState === 'segmenting' || processingState === 'predicting'}
-                      className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${(textThreshold - 0.1) / 0.8 * 100}%, #e5e7eb ${(textThreshold - 0.1) / 0.8 * 100}%, #e5e7eb 100%)`
-                      }}
-                    />
-                    <p className="text-xs text-gray-400 font-light">
-                      文本-图像匹配阈值：只有与提示词匹配分数 ≥ 此值的检测框才会被保留。调高更严格（只保留高度匹配），调低更宽松（可能包含匹配度较低的检测）
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm text-gray-700 font-light">
-                        返回结果数量
-                      </label>
-                      <span className="text-xs text-gray-500 font-light">
-                        {topK}
+                        {displayCount}
                       </span>
                     </div>
                     <input
@@ -304,197 +482,96 @@ export default function Home() {
                       min="1"
                       max="10"
                       step="1"
-                      value={topK}
-                      onChange={(e) => setTopK(parseInt(e.target.value))}
-                      disabled={processingState === 'segmenting' || processingState === 'predicting'}
+                      value={displayCount}
+                      onChange={(e) => setDisplayCount(parseInt(e.target.value))}
+                      disabled={processingState === 'predicting'}
                       className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{
-                        background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((topK - 1) / 9) * 100}%, #e5e7eb ${((topK - 1) / 9) * 100}%, #e5e7eb 100%)`
+                        background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 9) * 100}%, #e5e7eb ${((displayCount - 1) / 9) * 100}%, #e5e7eb 100%)`
                       }}
                     />
-                    <p className="text-xs text-gray-400 font-light">
-                      控制返回的识别结果数量，值越大返回的结果越多
-                    </p>
                   </div>
                 </div>
+                
+                {/* 自动分割按钮 - 显示在使用说明下方 */}
                 <div className="flex gap-4">
                   <button
-                    onClick={handleProcess}
-                    disabled={!selectedImage || processingState === 'segmenting' || processingState === 'predicting'}
-                    className="flex-1 px-8 py-4 bg-gray-400 text-white rounded-lg text-base font-light hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                    onClick={handleSegment}
+                    disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
+                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-light hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    {processingState === 'segmenting' || processingState === 'predicting' ? (
+                    {segmentState === 'segmenting' ? (
                       <>
                         <LoadingSpinner size="sm" />
-                        <span>
-                          {processingState === 'segmenting' ? '分割中...' : '识别中...'}
-                        </span>
+                        <span>分割中...</span>
                       </>
                     ) : (
-                      '开始识别'
+                      '自动分割'
                     )}
                   </button>
                 </div>
               </>
-            ) : (
-              <>
-                <div className="relative">
-                  <ImageWithCrop
-                    imageSrc={imagePreview}
-                    onCropAreaChange={handleCropAreaChange}
-                    cropArea={cropArea}
-                  />
-                  <button
-                    onClick={handleReset}
-                    disabled={processingState === 'segmenting' || processingState === 'predicting'}
-                    className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-white/80 hover:bg-white border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-20"
-                  >
-                    <svg
-                      className="w-4 h-4 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm text-gray-700 font-light">
-                          检测框阈值
-                        </label>
-                        <span className="text-xs text-gray-500 font-light">
-                          {boxThreshold.toFixed(2)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="0.9"
-                        step="0.05"
-                        value={boxThreshold}
-                        onChange={(e) => setBoxThreshold(parseFloat(e.target.value))}
-                        disabled={processingState === 'segmenting' || processingState === 'predicting'}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                          background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${(boxThreshold - 0.1) / 0.8 * 100}%, #e5e7eb ${(boxThreshold - 0.1) / 0.8 * 100}%, #e5e7eb 100%)`
-                        }}
-                      />
-                      <p className="text-xs text-gray-400 font-light">
-                        边界框置信度阈值：只有置信度 ≥ 此值的检测框才会被保留。调高更严格（可能漏检），调低更宽松（可能误检）
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm text-gray-700 font-light">
-                          文本识别阈值
-                        </label>
-                        <span className="text-xs text-gray-500 font-light">
-                          {textThreshold.toFixed(2)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.1"
-                        max="0.9"
-                        step="0.05"
-                        value={textThreshold}
-                        onChange={(e) => setTextThreshold(parseFloat(e.target.value))}
-                        disabled={processingState === 'segmenting' || processingState === 'predicting'}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                          background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${(textThreshold - 0.1) / 0.8 * 100}%, #e5e7eb ${(textThreshold - 0.1) / 0.8 * 100}%, #e5e7eb 100%)`
-                        }}
-                      />
-                      <p className="text-xs text-gray-400 font-light">
-                        文本-图像匹配阈值：只有与提示词匹配分数 ≥ 此值的检测框才会被保留。调高更严格（只保留高度匹配），调低更宽松（可能包含匹配度较低的检测）
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm text-gray-700 font-light">
-                          返回结果数量
-                        </label>
-                        <span className="text-xs text-gray-500 font-light">
-                          {topK}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="1"
-                        max="10"
-                        step="1"
-                        value={topK}
-                        onChange={(e) => setTopK(parseInt(e.target.value))}
-                        disabled={processingState === 'segmenting' || processingState === 'predicting'}
-                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                          background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((topK - 1) / 9) * 100}%, #e5e7eb ${((topK - 1) / 9) * 100}%, #e5e7eb 100%)`
-                        }}
-                      />
-                      <p className="text-xs text-gray-400 font-light">
-                        控制返回的识别结果数量，值越大返回的结果越多
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <button
-                      onClick={handleProcess}
-                      disabled={processingState === 'segmenting' || processingState === 'predicting'}
-                      className="flex-1 px-8 py-4 bg-gray-400 text-white rounded-lg text-base font-light hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-                    >
-                      {processingState === 'segmenting' || processingState === 'predicting' ? (
-                        <>
-                          <LoadingSpinner size="sm" />
-                          <span>
-                            {processingState === 'segmenting' ? '分割中...' : '识别中...'}
-                          </span>
-                        </>
-                      ) : (
-                        '开始识别'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            ) : null}
           </div>
 
           <div className="flex flex-col space-y-4">
-            <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-              <h2 className="text-sm font-light text-gray-700 mb-4">分割结果预览</h2>
-              <SegmentResults results={segmentResults} />
-            </div>
-            <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-              {imagePreview ? (
-                <>
-                  {processingState === 'segmenting' || processingState === 'predicting' ? (
+            {imagePreview ? (
+              <>
+                {/* 分割结果区域 */}
+                {segmentResults && (
+                  <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
+                    <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
+                    {segmentState === 'segmenting' ? (
+                      <div className="flex items-center justify-center py-12">
+                        <LoadingSpinner size="sm" />
+                        <span className="ml-3 text-sm text-gray-400 font-light">分割中...</span>
+                      </div>
+                    ) : (
+                      <SegmentResults 
+                        results={segmentResults} 
+                        selectedPart={selectedSegmentPart}
+                        onPartClick={handleSegmentPartClick}
+                      />
+                    )}
+                  </div>
+                )}
+                
+                {/* 识别结果区域 */}
+                <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
+                  <h3 className="text-sm font-light text-gray-700 mb-4">
+                    {selectedSegmentPart ? `识别结果 - ${partLabels[selectedSegmentPart]}` : '识别结果'}
+                  </h3>
+                  {processingState === 'predicting' ? (
                     <PredictionResultsSkeleton />
                   ) : predictionResults.length > 0 ? (
                     <PredictionResults 
-                      results={predictionResults} 
+                      results={predictionResults.slice(0, displayCount)} 
                       croppedImageFile={croppedImageFile}
                     />
+                  ) : selectedSegmentPart ? (
+                    <div className="flex items-center justify-center py-12">
+                      <p className="text-sm text-gray-400 font-light">识别中...</p>
+                    </div>
                   ) : (
                     <div className="flex items-center justify-center py-12">
-                      <p className="text-sm text-gray-400 font-light">点击"开始识别"查看结果</p>
+                      <p className="text-sm text-gray-400 font-light">
+                        {segmentResults 
+                          ? '点击上方分割结果中的部位进行识别' 
+                          : brushMaskFile 
+                            ? '点击右上角部位按钮进行识别' 
+                            : '请先涂抹选择图片区域或进行自动分割'}
+                      </p>
                     </div>
                   )}
-                </>
-              ) : (
+                </div>
+              </>
+            ) : (
+              <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
                 <div className="flex items-center justify-center py-12">
                   <p className="text-sm text-gray-400 font-light">请先上传图片</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -504,8 +581,8 @@ export default function Home() {
               <span>Powered by </span>
               <a
                 href="https://github.com/AetherSight/"
-                target="_blank"
-                rel="noopener noreferrer"
+            target="_blank"
+            rel="noopener noreferrer"
                 className="text-gray-600 hover:text-gray-800 transition-colors underline"
               >
                 AetherSight
@@ -518,7 +595,7 @@ export default function Home() {
             </div>
           </div>
         </footer>
-      </div>
+        </div>
     </div>
   );
 }

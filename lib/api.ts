@@ -12,19 +12,26 @@ export async function segmentImage(
   url.searchParams.set('box_threshold', boxThreshold.toString());
   url.searchParams.set('text_threshold', textThreshold.toString());
 
-  const response = await fetch(url.toString(), {
-    method: 'POST',
-    body: formData,
-  });
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      body: formData,
+    });
 
-  if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      message: `HTTP ${response.status}: ${response.statusText}`,
-    }));
-    throw new Error(error.message || error.detail || '分割失败');
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      }));
+      throw new Error(error.message || error.detail || '分割失败');
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('无法连接到服务器，请检查网络连接或确认后端服务是否已启动');
+    }
+    throw error;
   }
-
-  return await response.json();
 }
 
 export async function predictEquipment(
@@ -37,19 +44,26 @@ export async function predictEquipment(
   const url = new URL('/api/predict', window.location.origin);
   url.searchParams.set('top_k', topK.toString());
 
-  const response = await fetch(url.toString(), {
-    method: 'POST',
-    body: formData,
-  });
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      body: formData,
+    });
 
-  if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      message: `HTTP ${response.status}: ${response.statusText}`,
-    }));
-    throw new Error(error.message || error.detail || '识别失败');
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      }));
+      throw new Error(error.message || error.detail || '识别失败');
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('无法连接到服务器，请检查网络连接或确认后端服务是否已启动');
+    }
+    throw error;
   }
-
-  return await response.json();
 }
 
 export async function sendFeedback(

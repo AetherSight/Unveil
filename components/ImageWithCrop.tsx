@@ -5,20 +5,30 @@ import { useRef, useState, MouseEvent, TouchEvent, useEffect, useCallback } from
 interface ImageWithCropProps {
   imageSrc: string;
   onCropAreaChange: (area: { x: number; y: number; width: number; height: number } | null) => void;
+  onBrushMaskChange?: (maskFile: File | null) => void;
   cropArea?: { x: number; y: number; width: number; height: number } | null;
+  onClearSelection?: () => void;
 }
 
-export default function ImageWithCrop({ imageSrc, onCropAreaChange, cropArea }: ImageWithCropProps) {
+export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskChange, cropArea, onClearSelection }: ImageWithCropProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageNaturalSize, setImageNaturalSize] = useState({ width: 0, height: 0 });
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [imageDisplaySize, setImageDisplaySize] = useState({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
+  const [mode, setMode] = useState<'brush' | 'box'>('brush');
   const [cropBox, setCropBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [brushPoints, setBrushPoints] = useState<Array<{ x: number; y: number } | null>>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [dragType, setDragType] = useState<'move' | 'resize' | null>(null);
+  const [dragType, setDragType] = useState<'move' | 'resize' | 'create' | null>(null);
+  const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const extractMaskTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const prevCropAreaRef = useRef<typeof cropArea>(cropArea);
 
   const calculateImageDisplaySize = useCallback(() => {
     if (!containerRef.current || !imageRef.current || imageNaturalSize.width === 0) return;
@@ -72,15 +82,6 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, cropArea }: 
     setImageLoaded(true);
   };
 
-  useEffect(() => {
-    if (imageDisplaySize.width > 0 && !cropBox && !cropArea) {
-      const width = imageDisplaySize.width * 0.8;
-      const height = imageDisplaySize.height * 0.8;
-      const x = imageDisplaySize.offsetX + (imageDisplaySize.width - width) / 2;
-      const y = imageDisplaySize.offsetY + (imageDisplaySize.height - height) / 2;
-      setCropBox({ x, y, width, height });
-    }
-  }, [imageDisplaySize, cropBox, cropArea]);
 
   useEffect(() => {
     if (cropArea && imageLoaded && imageDisplaySize.width > 0) {
@@ -92,8 +93,663 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, cropArea }: 
         width: cropArea.width * scaleX,
         height: cropArea.height * scaleY,
       });
+    } else if (!cropArea && prevCropAreaRef.current) {
+      // 当cropArea从有值变为null时（外部清除），同步清除内部状态
+      if (mode === 'brush') {
+        setBrushPoints([]);
+        setIsDrawing(false);
+      }
+      setCropBox(null);
     }
-  }, [cropArea, imageLoaded, imageDisplaySize, imageNaturalSize]);
+    prevCropAreaRef.current = cropArea;
+  }, [cropArea, imageLoaded, imageDisplaySize, imageNaturalSize, mode]);
+
+
+  // 切换模式时清除状态
+  useEffect(() => {
+    if (mode === 'box') {
+      setBrushPoints([]);
+      setIsDrawing(false);
+    } else if (mode === 'brush') {
+      setIsDragging(false);
+      setDragType(null);
+      setSelectionStart(null);
+      // 切换到涂抹模式时，清除框选生成的图片
+      if (onBrushMaskChange) {
+        onBrushMaskChange(null);
+      }
+    }
+  }, [mode, onBrushMaskChange]);
+
+  // 绘制涂抹轨迹（黄色透明画笔）或框选框
+  useEffect(() => {
+    if (canvasRef.current && imageDisplaySize.width > 0 && containerSize.width > 0) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      canvas.width = containerSize.width;
+      canvas.height = containerSize.height;
+
+      // 清除画布
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 框选模式：绘制框选框
+      if (mode === 'box' && cropBox) {
+        // 使用白色边框和半透明填充，更优雅的样式
+        ctx.strokeStyle = '#ffffff'; // 白色边框
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; // 白色半透明填充
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.fillRect(cropBox.x, cropBox.y, cropBox.width, cropBox.height);
+        ctx.strokeRect(cropBox.x, cropBox.y, cropBox.width, cropBox.height);
+        
+        // 绘制调整手柄（白色外圈，灰色内圈）
+        const handleSize = 10;
+        const handleBorder = 2;
+        // 外圈（白色）
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(cropBox.x - handleSize / 2, cropBox.y - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(cropBox.x + cropBox.width - handleSize / 2, cropBox.y - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(cropBox.x - handleSize / 2, cropBox.y + cropBox.height - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(cropBox.x + cropBox.width - handleSize / 2, cropBox.y + cropBox.height - handleSize / 2, handleSize, handleSize);
+        // 内圈（灰色）
+        ctx.fillStyle = '#6b7280';
+        ctx.fillRect(
+          cropBox.x - handleSize / 2 + handleBorder,
+          cropBox.y - handleSize / 2 + handleBorder,
+          handleSize - handleBorder * 2,
+          handleSize - handleBorder * 2
+        );
+        ctx.fillRect(
+          cropBox.x + cropBox.width - handleSize / 2 + handleBorder,
+          cropBox.y - handleSize / 2 + handleBorder,
+          handleSize - handleBorder * 2,
+          handleSize - handleBorder * 2
+        );
+        ctx.fillRect(
+          cropBox.x - handleSize / 2 + handleBorder,
+          cropBox.y + cropBox.height - handleSize / 2 + handleBorder,
+          handleSize - handleBorder * 2,
+          handleSize - handleBorder * 2
+        );
+        ctx.fillRect(
+          cropBox.x + cropBox.width - handleSize / 2 + handleBorder,
+          cropBox.y + cropBox.height - handleSize / 2 + handleBorder,
+          handleSize - handleBorder * 2,
+          handleSize - handleBorder * 2
+        );
+        return;
+      }
+
+      // 涂抹模式：绘制画笔轨迹
+      if (mode !== 'brush') return;
+
+      // 使用黄色透明画笔绘制涂抹轨迹
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = 'rgba(255, 235, 59, 0.15)'; // 黄色巨透明
+      ctx.fillStyle = 'rgba(255, 235, 59, 0.15)'; // 黄色巨透明
+      ctx.lineWidth = 20;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (brushPoints.length > 0) {
+        // 分段绘制，遇到null时重新开始路径
+        let currentPath: Array<{ x: number; y: number }> = [];
+        
+        for (let i = 0; i < brushPoints.length; i++) {
+          const point = brushPoints[i];
+          
+          if (point === null) {
+            // 遇到分隔符，绘制当前路径并重新开始
+            if (currentPath.length > 0) {
+              ctx.beginPath();
+              ctx.moveTo(currentPath[0].x, currentPath[0].y);
+              for (let j = 1; j < currentPath.length; j++) {
+                ctx.lineTo(currentPath[j].x, currentPath[j].y);
+              }
+              ctx.stroke();
+              
+              // 绘制点
+              currentPath.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+              });
+            }
+            currentPath = [];
+          } else {
+            currentPath.push(point);
+          }
+        }
+        
+        // 绘制最后一段路径
+        if (currentPath.length > 0) {
+          ctx.beginPath();
+          ctx.moveTo(currentPath[0].x, currentPath[0].y);
+          for (let j = 1; j < currentPath.length; j++) {
+            ctx.lineTo(currentPath[j].x, currentPath[j].y);
+          }
+          ctx.stroke();
+          
+          // 绘制点
+          currentPath.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+      }
+    }
+  }, [brushPoints, imageDisplaySize, containerSize, mode, cropBox]);
+
+  // 创建mask并提取选中的区域
+  const extractMaskedImage = useCallback(async () => {
+    const validPoints = brushPoints.filter((p): p is { x: number; y: number } => p !== null);
+    if (!imageRef.current || !imageLoaded || validPoints.length === 0 || !onBrushMaskChange) return;
+
+    const img = imageRef.current;
+    const scaleX = imageNaturalSize.width / imageDisplaySize.width;
+    const scaleY = imageNaturalSize.height / imageDisplaySize.height;
+
+    // 创建mask canvas（使用原图尺寸）
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = imageNaturalSize.width;
+    maskCanvas.height = imageNaturalSize.height;
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+
+    // 在mask上绘制涂抹路径（白色表示选中）
+    maskCtx.fillStyle = 'white';
+    maskCtx.strokeStyle = 'white';
+    maskCtx.lineWidth = 20 * scaleX; // 根据缩放调整画笔大小
+    maskCtx.lineCap = 'round';
+    maskCtx.lineJoin = 'round';
+
+    if (brushPoints.length > 0) {
+      // 分段绘制，遇到null时重新开始路径
+      let currentPath: Array<{ x: number; y: number }> = [];
+      
+      for (let i = 0; i < brushPoints.length; i++) {
+        const point = brushPoints[i];
+        
+        if (point === null) {
+          // 遇到分隔符，绘制当前路径并重新开始
+          if (currentPath.length > 0) {
+            maskCtx.beginPath();
+            const firstPoint = currentPath[0];
+            maskCtx.moveTo(
+              (firstPoint.x - imageDisplaySize.offsetX) * scaleX,
+              (firstPoint.y - imageDisplaySize.offsetY) * scaleY
+            );
+            for (let j = 1; j < currentPath.length; j++) {
+              const p = currentPath[j];
+              maskCtx.lineTo(
+                (p.x - imageDisplaySize.offsetX) * scaleX,
+                (p.y - imageDisplaySize.offsetY) * scaleY
+              );
+            }
+            maskCtx.stroke();
+            
+            // 绘制点
+            currentPath.forEach(p => {
+              maskCtx.beginPath();
+              maskCtx.arc(
+                (p.x - imageDisplaySize.offsetX) * scaleX,
+                (p.y - imageDisplaySize.offsetY) * scaleY,
+                10 * Math.max(scaleX, scaleY),
+                0,
+                Math.PI * 2
+              );
+              maskCtx.fill();
+            });
+          }
+          currentPath = [];
+        } else {
+          currentPath.push(point);
+        }
+      }
+      
+      // 绘制最后一段路径
+      if (currentPath.length > 0) {
+        maskCtx.beginPath();
+        const firstPoint = currentPath[0];
+        maskCtx.moveTo(
+          (firstPoint.x - imageDisplaySize.offsetX) * scaleX,
+          (firstPoint.y - imageDisplaySize.offsetY) * scaleY
+        );
+        for (let j = 1; j < currentPath.length; j++) {
+          const p = currentPath[j];
+          maskCtx.lineTo(
+            (p.x - imageDisplaySize.offsetX) * scaleX,
+            (p.y - imageDisplaySize.offsetY) * scaleY
+          );
+        }
+        maskCtx.stroke();
+        
+        // 绘制点
+        currentPath.forEach(p => {
+          maskCtx.beginPath();
+          maskCtx.arc(
+            (p.x - imageDisplaySize.offsetX) * scaleX,
+            (p.y - imageDisplaySize.offsetY) * scaleY,
+            10 * Math.max(scaleX, scaleY),
+            0,
+            Math.PI * 2
+          );
+          maskCtx.fill();
+        });
+      }
+    }
+
+    // 获取mask的bounding box
+    const imageData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    let minX = maskCanvas.width;
+    let maxX = 0;
+    let minY = maskCanvas.height;
+    let maxY = 0;
+    let hasMask = false;
+
+    for (let y = 0; y < maskCanvas.height; y++) {
+      for (let x = 0; x < maskCanvas.width; x++) {
+        const idx = (y * maskCanvas.width + x) * 4;
+        if (imageData.data[idx] > 0) { // 白色像素
+          hasMask = true;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+
+    if (!hasMask) {
+      onBrushMaskChange(null);
+      return;
+    }
+
+    // 添加一些padding
+    const padding = 5;
+    minX = Math.max(0, minX - padding);
+    minY = Math.max(0, minY - padding);
+    maxX = Math.min(maskCanvas.width, maxX + padding);
+    maxY = Math.min(maskCanvas.height, maxY + padding);
+
+    const bboxWidth = maxX - minX;
+    const bboxHeight = maxY - minY;
+
+    // 创建最终图片canvas
+    const resultCanvas = document.createElement('canvas');
+    resultCanvas.width = bboxWidth;
+    resultCanvas.height = bboxHeight;
+    const resultCtx = resultCanvas.getContext('2d');
+    if (!resultCtx) return;
+
+    // 绘制原图
+    resultCtx.drawImage(img, minX, minY, bboxWidth, bboxHeight, 0, 0, bboxWidth, bboxHeight);
+
+    // 应用mask：只保留mask标记的像素
+    const resultImageData = resultCtx.getImageData(0, 0, bboxWidth, bboxHeight);
+    const maskImageData = maskCtx.getImageData(minX, minY, bboxWidth, bboxHeight);
+
+    for (let i = 0; i < resultImageData.data.length; i += 4) {
+      const maskAlpha = maskImageData.data[i]; // mask的红色通道（因为是白色）
+      if (maskAlpha === 0) {
+        // 未选中的区域设为透明
+        resultImageData.data[i + 3] = 0; // alpha通道
+      }
+    }
+
+    resultCtx.putImageData(resultImageData, 0, 0);
+
+    // 转换为blob
+    const blob = await new Promise<Blob | null>((resolve) => {
+      resultCanvas.toBlob(resolve, 'image/png');
+    });
+
+    if (blob) {
+      const file = new File([blob], 'masked-image.png', { type: 'image/png' });
+      onBrushMaskChange(file);
+      
+      // 同时更新cropArea用于显示预览
+      const cropData = {
+        x: minX,
+        y: minY,
+        width: bboxWidth,
+        height: bboxHeight,
+      };
+      onCropAreaChange(cropData);
+    } else {
+      onBrushMaskChange(null);
+    }
+  }, [imageRef, imageLoaded, brushPoints, imageDisplaySize, imageNaturalSize, onBrushMaskChange, onCropAreaChange]);
+
+  // 计算涂抹区域的bounding box
+  const calculateBrushBoundingBox = useCallback(() => {
+    const validPoints = brushPoints.filter((p): p is { x: number; y: number } => p !== null);
+    if (validPoints.length === 0) return null;
+
+    const minX = Math.min(...validPoints.map(p => p.x));
+    const maxX = Math.max(...validPoints.map(p => p.x));
+    const minY = Math.min(...validPoints.map(p => p.y));
+    const maxY = Math.max(...validPoints.map(p => p.y));
+
+    // 确保在图片区域内
+    const x = Math.max(imageDisplaySize.offsetX, minX - 10);
+    const y = Math.max(imageDisplaySize.offsetY, minY - 10);
+    const width = Math.min(imageDisplaySize.offsetX + imageDisplaySize.width - x, maxX - minX + 20);
+    const height = Math.min(imageDisplaySize.offsetY + imageDisplaySize.height - y, maxY - minY + 20);
+
+    return { x, y, width, height };
+  }, [brushPoints, imageDisplaySize]);
+
+  // 更新cropBox当brushPoints变化时（不调用extractMaskedImage避免无限循环）
+  useEffect(() => {
+    if (brushPoints.length > 0) {
+      const bbox = calculateBrushBoundingBox();
+      if (bbox) {
+        setCropBox(bbox);
+      }
+    } else if (brushPoints.length === 0) {
+      setCropBox(null);
+      if (onBrushMaskChange) {
+        onBrushMaskChange(null);
+      }
+      onCropAreaChange(null);
+    }
+  }, [brushPoints, calculateBrushBoundingBox, onBrushMaskChange, onCropAreaChange]);
+
+  // 更新预览图（涂抹模式下显示应用mask后的预览，使用防抖优化性能）
+  useEffect(() => {
+    // 清除之前的timer
+    if (extractMaskTimerRef.current) {
+      clearTimeout(extractMaskTimerRef.current);
+    }
+
+    if (!cropBox || !previewCanvasRef.current || !imageRef.current || !imageLoaded || brushPoints.length === 0) {
+      if (previewCanvasRef.current) {
+        // 清除预览图
+        const previewCanvas = previewCanvasRef.current;
+        const ctx = previewCanvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        }
+      }
+      return;
+    }
+
+    // 使用防抖延迟更新预览
+    extractMaskTimerRef.current = setTimeout(() => {
+      if (cropBox && previewCanvasRef.current && imageRef.current && imageLoaded && brushPoints.length > 0) {
+        const previewCanvas = previewCanvasRef.current;
+        const ctx = previewCanvas.getContext('2d');
+        if (!ctx) return;
+
+        const previewSize = 120;
+        previewCanvas.width = previewSize;
+        previewCanvas.height = previewSize;
+
+        // 计算裁剪区域在原图中的位置
+        const scaleX = imageNaturalSize.width / imageDisplaySize.width;
+        const scaleY = imageNaturalSize.height / imageDisplaySize.height;
+        
+        const sourceX = (cropBox.x - imageDisplaySize.offsetX) * scaleX;
+        const sourceY = (cropBox.y - imageDisplaySize.offsetY) * scaleY;
+        const sourceWidth = cropBox.width * scaleX;
+        const sourceHeight = cropBox.height * scaleY;
+
+        // 创建临时canvas来应用mask
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = sourceWidth;
+        tempCanvas.height = sourceHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return;
+
+        // 绘制原图区域
+        tempCtx.drawImage(
+          imageRef.current,
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
+          0,
+          0,
+          sourceWidth,
+          sourceHeight
+        );
+
+        // 创建mask
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = sourceWidth;
+        maskCanvas.height = sourceHeight;
+        const maskCtx = maskCanvas.getContext('2d');
+        if (!maskCtx) return;
+
+        // 在mask上绘制涂抹路径
+        maskCtx.fillStyle = 'white';
+        maskCtx.strokeStyle = 'white';
+        const brushSize = 20 * Math.max(scaleX, scaleY);
+        maskCtx.lineWidth = brushSize;
+        maskCtx.lineCap = 'round';
+        maskCtx.lineJoin = 'round';
+
+        if (brushPoints.length > 0) {
+          // 分段绘制，遇到null时重新开始路径
+          let currentPath: Array<{ x: number; y: number }> = [];
+          
+          for (let i = 0; i < brushPoints.length; i++) {
+            const point = brushPoints[i];
+            
+            if (point === null) {
+              // 遇到分隔符，绘制当前路径并重新开始
+              if (currentPath.length > 0) {
+                maskCtx.beginPath();
+                const firstPoint = currentPath[0];
+                maskCtx.moveTo(
+                  (firstPoint.x - imageDisplaySize.offsetX) * scaleX - sourceX,
+                  (firstPoint.y - imageDisplaySize.offsetY) * scaleY - sourceY
+                );
+                for (let j = 1; j < currentPath.length; j++) {
+                  const p = currentPath[j];
+                  maskCtx.lineTo(
+                    (p.x - imageDisplaySize.offsetX) * scaleX - sourceX,
+                    (p.y - imageDisplaySize.offsetY) * scaleY - sourceY
+                  );
+                }
+                maskCtx.stroke();
+                
+                // 绘制点
+                currentPath.forEach(p => {
+                  maskCtx.beginPath();
+                  maskCtx.arc(
+                    (p.x - imageDisplaySize.offsetX) * scaleX - sourceX,
+                    (p.y - imageDisplaySize.offsetY) * scaleY - sourceY,
+                    brushSize / 2,
+                    0,
+                    Math.PI * 2
+                  );
+                  maskCtx.fill();
+                });
+              }
+              currentPath = [];
+            } else {
+              currentPath.push(point);
+            }
+          }
+          
+          // 绘制最后一段路径
+          if (currentPath.length > 0) {
+            maskCtx.beginPath();
+            const firstPoint = currentPath[0];
+            maskCtx.moveTo(
+              (firstPoint.x - imageDisplaySize.offsetX) * scaleX - sourceX,
+              (firstPoint.y - imageDisplaySize.offsetY) * scaleY - sourceY
+            );
+            for (let j = 1; j < currentPath.length; j++) {
+              const p = currentPath[j];
+              maskCtx.lineTo(
+                (p.x - imageDisplaySize.offsetX) * scaleX - sourceX,
+                (p.y - imageDisplaySize.offsetY) * scaleY - sourceY
+              );
+            }
+            maskCtx.stroke();
+            
+            // 绘制点
+            currentPath.forEach(p => {
+              maskCtx.beginPath();
+              maskCtx.arc(
+                (p.x - imageDisplaySize.offsetX) * scaleX - sourceX,
+                (p.y - imageDisplaySize.offsetY) * scaleY - sourceY,
+                brushSize / 2,
+                0,
+                Math.PI * 2
+              );
+              maskCtx.fill();
+            });
+          }
+        }
+
+        // 应用mask到图片
+        const imageData = tempCtx.getImageData(0, 0, sourceWidth, sourceHeight);
+        const maskImageData = maskCtx.getImageData(0, 0, sourceWidth, sourceHeight);
+
+        for (let i = 0; i < imageData.data.length; i += 4) {
+          const maskAlpha = maskImageData.data[i]; // mask的红色通道（因为是白色）
+          if (maskAlpha === 0) {
+            // 未选中的区域设为透明
+            imageData.data[i + 3] = 0; // alpha通道
+          }
+        }
+
+        tempCtx.putImageData(imageData, 0, 0);
+
+        // 计算预览图的缩放比例
+        const previewScale = Math.min(previewSize / sourceWidth, previewSize / sourceHeight);
+        const previewWidth = sourceWidth * previewScale;
+        const previewHeight = sourceHeight * previewScale;
+        const previewX = (previewSize - previewWidth) / 2;
+        const previewY = (previewSize - previewHeight) / 2;
+
+        // 绘制预览图（带透明背景）
+        ctx.fillStyle = '#f3f4f6';
+        ctx.fillRect(0, 0, previewSize, previewSize);
+        ctx.drawImage(
+          tempCanvas,
+          0,
+          0,
+          sourceWidth,
+          sourceHeight,
+          previewX,
+          previewY,
+          previewWidth,
+          previewHeight
+        );
+      }
+    }, 150); // 150ms防抖
+
+    return () => {
+      if (extractMaskTimerRef.current) {
+        clearTimeout(extractMaskTimerRef.current);
+      }
+    };
+  }, [cropBox, imageLoaded, imageDisplaySize, imageNaturalSize, brushPoints]);
+
+  // 涂抹模式的事件处理
+  const handleBrushStart = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const pos = getPosFromEvent(e);
+    
+    // 检查是否在图片区域内
+    if (
+      pos.x < imageDisplaySize.offsetX ||
+      pos.x > imageDisplaySize.offsetX + imageDisplaySize.width ||
+      pos.y < imageDisplaySize.offsetY ||
+      pos.y > imageDisplaySize.offsetY + imageDisplaySize.height
+    ) {
+      return;
+    }
+
+    setIsDrawing(true);
+    // 支持多次涂抹：新的涂抹开始时添加分隔符，然后添加新点
+    setBrushPoints(prev => {
+      // 如果之前有涂抹且当前不在绘制中，添加null作为分隔符
+      if (prev.length > 0 && !isDrawing) {
+        return [...prev, null, pos];
+      }
+      return [...prev, pos];
+    });
+  };
+
+  const handleBrushMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isDrawing || mode !== 'brush') return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    let clientX: number;
+    let clientY: number;
+
+    if ('touches' in e) {
+      if (e.touches.length === 0) return;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const pos = {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+
+    // 检查是否在图片区域内
+    if (
+      pos.x >= imageDisplaySize.offsetX &&
+      pos.x <= imageDisplaySize.offsetX + imageDisplaySize.width &&
+      pos.y >= imageDisplaySize.offsetY &&
+      pos.y <= imageDisplaySize.offsetY + imageDisplaySize.height
+    ) {
+      setBrushPoints(prev => [...prev, pos]);
+    }
+  }, [isDrawing, mode, imageDisplaySize]);
+
+  const handleBrushEnd = useCallback(async () => {
+    if (!isDrawing || mode !== 'brush') return;
+    setIsDrawing(false);
+    
+    // 涂抹结束时提取mask
+    const validPoints = brushPoints.filter((p): p is { x: number; y: number } => p !== null);
+    if (validPoints.length > 0) {
+      await extractMaskedImage();
+    } else {
+      if (onBrushMaskChange) {
+        onBrushMaskChange(null);
+      }
+      onCropAreaChange(null);
+    }
+  }, [isDrawing, mode, brushPoints, extractMaskedImage, onBrushMaskChange, onCropAreaChange]);
+
+  useEffect(() => {
+    if (isDrawing && mode === 'brush') {
+      const handleMove = (e: Event) => handleBrushMove(e as unknown as MouseEvent | TouchEvent);
+      const handleEnd = () => handleBrushEnd();
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', handleEnd);
+      document.addEventListener('touchmove', handleMove, { passive: false });
+      document.addEventListener('touchend', handleEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleMove);
+        document.removeEventListener('mouseup', handleEnd);
+        document.removeEventListener('touchmove', handleMove);
+        document.removeEventListener('touchend', handleEnd);
+      };
+    }
+  }, [isDrawing, mode, handleBrushMove, handleBrushEnd]);
+
 
   const getPosFromEvent = (e: MouseEvent | TouchEvent) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -112,42 +768,50 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, cropArea }: 
     }
   };
 
-  const getResizeType = (x: number, y: number): 'resize' | 'move' | null => {
-    if (!cropBox) return null;
+  // 框选模式：获取调整类型
+  const getResizeType = (x: number, y: number): 'move' | 'resize' | 'create' | null => {
+    if (!cropBox) return 'create';
     
-    const handleSize = 20;
     const { x: boxX, y: boxY, width, height } = cropBox;
+    const handleSize = 10;
+    const isInBox = x >= boxX && x <= boxX + width && y >= boxY && y <= boxY + height;
     
-    const distanceX = Math.abs(x - (boxX + width));
-    const distanceY = Math.abs(y - (boxY + height));
+    if (!isInBox) return 'create';
     
-    if (distanceX <= handleSize / 2 && distanceY <= handleSize / 2) {
+    // 检查是否在调整手柄上
+    const isNearLeft = Math.abs(x - boxX) < handleSize;
+    const isNearRight = Math.abs(x - (boxX + width)) < handleSize;
+    const isNearTop = Math.abs(y - boxY) < handleSize;
+    const isNearBottom = Math.abs(y - (boxY + height)) < handleSize;
+    
+    if (isNearLeft || isNearRight || isNearTop || isNearBottom) {
       return 'resize';
     }
     
-    if (x >= boxX && x <= boxX + width && y >= boxY && y <= boxY + height) {
-      return 'move';
-    }
-    
-    return null;
+    return 'move';
   };
 
-  const handleStart = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
-    if (!cropBox) return;
+  // 框选模式：开始拖拽
+  const handleBoxStart = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
+    if (mode !== 'box') return;
     e.preventDefault();
     e.stopPropagation();
     const pos = getPosFromEvent(e);
-    const type = getResizeType(pos.x, pos.y);
     
-    if (type) {
-      setIsDragging(true);
-      setDragType(type);
-      setDragStart({ x: pos.x - cropBox.x, y: pos.y - cropBox.y });
+    const resizeType = getResizeType(pos.x, pos.y);
+    setDragType(resizeType);
+    setIsDragging(true);
+    setDragStart(pos);
+    
+    if (resizeType === 'create') {
+      setSelectionStart(pos);
+      setCropBox(null);
     }
   };
 
-  const handleGlobalMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDragging || !cropBox || imageDisplaySize.width === 0) return;
+  // 框选模式：拖拽移动
+  const handleBoxMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isDragging || mode !== 'box') return;
     e.preventDefault();
     e.stopPropagation();
     
@@ -171,79 +835,139 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, cropArea }: 
       y: clientY - rect.top,
     };
     
-    if (dragType === 'move') {
-      const minX = imageDisplaySize.offsetX;
-      const minY = imageDisplaySize.offsetY;
-      const maxX = imageDisplaySize.offsetX + imageDisplaySize.width - cropBox.width;
-      const maxY = imageDisplaySize.offsetY + imageDisplaySize.height - cropBox.height;
-      const newX = Math.max(minX, Math.min(pos.x - dragStart.x, maxX));
-      const newY = Math.max(minY, Math.min(pos.y - dragStart.y, maxY));
+    if (dragType === 'create' && selectionStart) {
+      const x = Math.min(selectionStart.x, pos.x);
+      const y = Math.min(selectionStart.y, pos.y);
+      const width = Math.abs(pos.x - selectionStart.x);
+      const height = Math.abs(pos.y - selectionStart.y);
+      
+      // 限制在图片区域内
+      const constrainedX = Math.max(imageDisplaySize.offsetX, Math.min(x, imageDisplaySize.offsetX + imageDisplaySize.width));
+      const constrainedY = Math.max(imageDisplaySize.offsetY, Math.min(y, imageDisplaySize.offsetY + imageDisplaySize.height));
+      const constrainedWidth = Math.min(width, imageDisplaySize.offsetX + imageDisplaySize.width - constrainedX);
+      const constrainedHeight = Math.min(height, imageDisplaySize.offsetY + imageDisplaySize.height - constrainedY);
+      
+      setCropBox({ x: constrainedX, y: constrainedY, width: constrainedWidth, height: constrainedHeight });
+    } else if (dragType === 'move' && cropBox) {
+      const deltaX = pos.x - dragStart.x;
+      const deltaY = pos.y - dragStart.y;
+      
+      let newX = cropBox.x + deltaX;
+      let newY = cropBox.y + deltaY;
+      
+      // 限制在图片区域内
+      newX = Math.max(imageDisplaySize.offsetX, Math.min(newX, imageDisplaySize.offsetX + imageDisplaySize.width - cropBox.width));
+      newY = Math.max(imageDisplaySize.offsetY, Math.min(newY, imageDisplaySize.offsetY + imageDisplaySize.height - cropBox.height));
+      
       setCropBox({ ...cropBox, x: newX, y: newY });
-    } else if (dragType === 'resize') {
-      const maxWidth = imageDisplaySize.offsetX + imageDisplaySize.width - cropBox.x;
-      const maxHeight = imageDisplaySize.offsetY + imageDisplaySize.height - cropBox.y;
-      const newWidth = Math.max(50, Math.min(pos.x - cropBox.x, maxWidth));
-      const newHeight = Math.max(50, Math.min(pos.y - cropBox.y, maxHeight));
+      setDragStart(pos);
+    } else if (dragType === 'resize' && cropBox) {
+      const deltaX = pos.x - dragStart.x;
+      const deltaY = pos.y - dragStart.y;
+      
+      // 简化：只从右下角调整
+      const newWidth = Math.max(20, Math.min(cropBox.width + deltaX, imageDisplaySize.offsetX + imageDisplaySize.width - cropBox.x));
+      const newHeight = Math.max(20, Math.min(cropBox.height + deltaY, imageDisplaySize.offsetY + imageDisplaySize.height - cropBox.y));
+      
       setCropBox({ ...cropBox, width: newWidth, height: newHeight });
+      setDragStart(pos);
     }
-  }, [isDragging, cropBox, dragType, dragStart, imageDisplaySize]);
+  }, [isDragging, mode, dragType, cropBox, dragStart, selectionStart, imageDisplaySize]);
 
-  const handleGlobalEnd = useCallback(() => {
-    if (!isDragging || !cropBox || imageDisplaySize.width === 0) return;
-    setIsDragging(false);
-    setDragType(null);
+  // 框选模式：提取选中区域的图片
+  const extractBoxImage = useCallback(async () => {
+    if (!imageRef.current || !imageLoaded || !cropBox || mode !== 'box' || !onBrushMaskChange) return;
     
+    const img = imageRef.current;
     const scaleX = imageNaturalSize.width / imageDisplaySize.width;
     const scaleY = imageNaturalSize.height / imageDisplaySize.height;
     
-    const cropData = {
-      x: (cropBox.x - imageDisplaySize.offsetX) * scaleX,
-      y: (cropBox.y - imageDisplaySize.offsetY) * scaleY,
-      width: cropBox.width * scaleX,
-      height: cropBox.height * scaleY,
-    };
+    // 转换为相对于图片的坐标
+    const cropX = (cropBox.x - imageDisplaySize.offsetX) * scaleX;
+    const cropY = (cropBox.y - imageDisplaySize.offsetY) * scaleY;
+    const cropWidth = cropBox.width * scaleX;
+    const cropHeight = cropBox.height * scaleY;
     
-    onCropAreaChange(cropData);
-  }, [isDragging, cropBox, imageDisplaySize, imageNaturalSize, onCropAreaChange]);
+    // 确保坐标在图片范围内
+    const x = Math.max(0, Math.min(cropX, imageNaturalSize.width));
+    const y = Math.max(0, Math.min(cropY, imageNaturalSize.height));
+    const width = Math.max(1, Math.min(cropWidth, imageNaturalSize.width - x));
+    const height = Math.max(1, Math.min(cropHeight, imageNaturalSize.height - y));
+    
+    // 创建canvas并提取选中区域
+    const resultCanvas = document.createElement('canvas');
+    resultCanvas.width = width;
+    resultCanvas.height = height;
+    const resultCtx = resultCanvas.getContext('2d');
+    if (!resultCtx) return;
+    
+    // 绘制选中区域
+    resultCtx.drawImage(img, x, y, width, height, 0, 0, width, height);
+    
+    // 转换为blob
+    const blob = await new Promise<Blob | null>((resolve) => {
+      resultCanvas.toBlob(resolve, 'image/png');
+    });
+    
+    if (blob) {
+      const file = new File([blob], 'box-selected-image.png', { type: 'image/png' });
+      onBrushMaskChange(file);
+    } else {
+      onBrushMaskChange(null);
+    }
+  }, [imageRef, imageLoaded, cropBox, mode, imageDisplaySize, imageNaturalSize, onBrushMaskChange]);
 
+  // 框选模式：结束拖拽
+  const handleBoxEnd = useCallback(async () => {
+    if (!isDragging || mode !== 'box') return;
+    setIsDragging(false);
+    setDragType(null);
+    setSelectionStart(null);
+    
+    if (cropBox && cropBox.width > 10 && cropBox.height > 10) {
+      // 转换为相对于图片的坐标
+      const scaleX = imageNaturalSize.width / imageDisplaySize.width;
+      const scaleY = imageNaturalSize.height / imageDisplaySize.height;
+      
+      const cropArea = {
+        x: (cropBox.x - imageDisplaySize.offsetX) * scaleX,
+        y: (cropBox.y - imageDisplaySize.offsetY) * scaleY,
+        width: cropBox.width * scaleX,
+        height: cropBox.height * scaleY,
+      };
+      
+      onCropAreaChange(cropArea);
+      // 提取选中区域的图片
+      await extractBoxImage();
+    }
+  }, [isDragging, mode, cropBox, imageDisplaySize, imageNaturalSize, onCropAreaChange, extractBoxImage]);
+
+  // 框选模式：全局事件监听
   useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleGlobalMove as EventListener);
-      document.addEventListener('mouseup', handleGlobalEnd);
-      document.addEventListener('touchmove', handleGlobalMove as EventListener, { passive: false });
-      document.addEventListener('touchend', handleGlobalEnd);
+    if (isDragging && mode === 'box') {
+      const handleMove = (e: Event) => handleBoxMove(e as unknown as MouseEvent | TouchEvent);
+      const handleEnd = () => handleBoxEnd();
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', handleEnd);
+      document.addEventListener('touchmove', handleMove, { passive: false });
+      document.addEventListener('touchend', handleEnd);
       return () => {
-        document.removeEventListener('mousemove', handleGlobalMove as EventListener);
-        document.removeEventListener('mouseup', handleGlobalEnd);
-        document.removeEventListener('touchmove', handleGlobalMove as EventListener);
-        document.removeEventListener('touchend', handleGlobalEnd);
+        document.removeEventListener('mousemove', handleMove);
+        document.removeEventListener('mouseup', handleEnd);
+        document.removeEventListener('touchmove', handleMove);
+        document.removeEventListener('touchend', handleEnd);
       };
     }
-  }, [isDragging, handleGlobalMove, handleGlobalEnd]);
+  }, [isDragging, mode, handleBoxMove, handleBoxEnd]);
 
-  if (!cropBox) {
-    return (
-      <div className="relative w-full aspect-video bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
-        <div ref={containerRef} className="relative w-full h-full">
-          <img
-            ref={imageRef}
-            src={imageSrc}
-            alt="预览"
-            className="w-full h-full object-contain"
-            onLoad={handleImageLoad}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative w-full aspect-video bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
       <div
         ref={containerRef}
-        className="relative w-full h-full select-none"
-        onMouseDown={handleStart}
-        onTouchStart={handleStart}
+        className={`relative w-full h-full select-none ${mode === 'box' ? 'cursor-crosshair' : ''}`}
+        onMouseDown={mode === 'brush' ? handleBrushStart : handleBoxStart}
+        onTouchStart={mode === 'brush' ? handleBrushStart : handleBoxStart}
       >
         <img
           ref={imageRef}
@@ -252,62 +976,54 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, cropArea }: 
           className="w-full h-full object-contain"
           onLoad={handleImageLoad}
         />
-        
-        <div
-          className="absolute inset-0 bg-black/50 pointer-events-none z-10"
-          style={{
-            clipPath: `polygon(
-              0% 0%,
-              0% 100%,
-              ${Math.round(cropBox.x)}px 100%,
-              ${Math.round(cropBox.x)}px ${Math.round(cropBox.y)}px,
-              ${Math.round(cropBox.x + cropBox.width)}px ${Math.round(cropBox.y)}px,
-              ${Math.round(cropBox.x + cropBox.width)}px ${Math.round(cropBox.y + cropBox.height)}px,
-              ${Math.round(cropBox.x)}px ${Math.round(cropBox.y + cropBox.height)}px,
-              ${Math.round(cropBox.x)}px 100%,
-              100% 100%,
-              100% 0%
-            )`,
-          }}
+
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 z-20 pointer-events-none"
+          style={{ touchAction: 'none' }}
         />
-        
-        <div
-          className="absolute pointer-events-none z-20"
-          style={{
-            left: `${Math.round(cropBox.x)}px`,
-            top: `${Math.round(cropBox.y)}px`,
-            width: `${Math.round(cropBox.width)}px`,
-            height: `${Math.round(cropBox.height)}px`,
-            outline: '2px solid white',
-            outlineOffset: '-2px',
-          }}
-        />
-        
-        <div
-          className="absolute bg-transparent z-30 cursor-move"
-          style={{
-            left: `${Math.round(cropBox.x)}px`,
-            top: `${Math.round(cropBox.y)}px`,
-            width: `${Math.round(cropBox.width)}px`,
-            height: `${Math.round(cropBox.height)}px`,
-            touchAction: 'none',
-          }}
-          onMouseDown={handleStart}
-          onTouchStart={handleStart}
-        />
-        
-        <div
-          className="absolute bg-white rounded-full z-30 cursor-nwse-resize"
-          style={{
-            left: `${Math.round(cropBox.x + cropBox.width - 10)}px`,
-            top: `${Math.round(cropBox.y + cropBox.height - 10)}px`,
-            width: '20px',
-            height: '20px',
-            touchAction: 'none',
-          }}
-          onMouseDown={handleStart}
-          onTouchStart={handleStart}
-        />
+      </div>
+      
+      {/* 左下角模式切换按钮 */}
+      <div className="absolute bottom-2 left-2 flex gap-2 z-30">
+        <button
+          onClick={() => setMode('brush')}
+          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+            mode === 'brush'
+              ? 'bg-blue-500 text-white shadow-md'
+              : 'bg-white/90 text-gray-600 hover:bg-white border border-gray-200'
+          }`}
+          title="涂抹模式"
+        >
+            <svg className="w-5 h-5" viewBox="0 -2 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g stroke="none" strokeWidth="1" fillRule="evenodd" transform="translate(-99.000000, -154.000000)">
+                <g fill="currentColor">
+                  <path d="M128.735,157.585 L116.047,170.112 L114.65,168.733 L127.339,156.206 C127.725,155.825 128.35,155.825 128.735,156.206 C129.121,156.587 129.121,157.204 128.735,157.585 L128.735,157.585 Z M112.556,173.56 C112.427,173.433 111.159,172.181 111.159,172.181 L113.254,170.112 L114.65,171.491 L112.556,173.56 L112.556,173.56 Z M110.461,178.385 C109.477,179.298 105.08,181.333 102.491,179.36 C102.491,179.36 103.392,178.657 104.074,177.246 C105.703,172.919 109.763,173.56 109.763,173.56 L111.159,174.938 C111.173,174.952 112.202,176.771 110.461,178.385 L110.461,178.385 Z M130.132,154.827 C128.975,153.685 127.099,153.685 125.942,154.827 L108.764,171.788 C106.661,171.74 103.748,172.485 102.491,176.603 C101.53,178.781 99,178.671 99,178.671 C104.253,184.498 110.444,181.196 111.857,179.764 C113.1,178.506 113.279,176.966 113.146,175.734 L130.132,158.964 C131.289,157.821 131.289,155.969 130.132,154.827 L130.132,154.827 Z" />
+                </g>
+              </g>
+            </svg>
+        </button>
+        <button
+          onClick={() => setMode('box')}
+          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+            mode === 'box'
+              ? 'bg-blue-500 text-white shadow-md'
+              : 'bg-white/90 text-gray-600 hover:bg-white border border-gray-200'
+          }`}
+          title="框选模式"
+        >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <g clipPath="url(#clip0_15_434)">
+                <path d="M5 1V5M5 5H1M5 5V18C5 18.5523 5.44772 19 6 19H16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}/>
+                <path d="M19 23L19 19M19 19L23 19M19 19L19 6C19 5.44772 18.5523 5 18 5L8 5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}/>
+              </g>
+              <defs>
+                <clipPath id="clip0_15_434">
+                  <rect width="24" height="24" fill="white"/>
+                </clipPath>
+              </defs>
+            </svg>
+        </button>
       </div>
     </div>
   );
