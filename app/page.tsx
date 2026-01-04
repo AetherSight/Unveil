@@ -701,9 +701,9 @@ export default function Home() {
                     <div className="flex items-center justify-center py-12">
                       <p className="text-sm text-gray-400 font-light">
                         {segmentResults 
-                          ? '点击上方分割结果中的部位进行识别' 
+                          ? '点击上方结果中的部位进行识别' 
                           : brushMaskFile 
-                            ? '点击右上角部位按钮进行识别' 
+                            ? '点击部位按钮进行识别' 
                             : '请先涂抹选择图片区域或进行自动分割'}
                       </p>
                     </div>
