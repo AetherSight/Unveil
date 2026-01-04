@@ -323,8 +323,9 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
               </div>
 
               {/* 同模型装备列表 */}
-              <div className="space-y-2">
-                {result.same_model_gears.map((gear) => {
+              {result.same_model_gears && result.same_model_gears.length > 0 && (
+                <div className="space-y-2">
+                  {result.same_model_gears.map((gear) => {
                   const gearIconUrl = getIconUrl(gear.id);
                   return (
                     <div
