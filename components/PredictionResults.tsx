@@ -8,9 +8,10 @@ import { sendFeedback } from '@/lib/api';
 interface PredictionResultsProps {
   results: PredictionResult[];
   croppedImageFile: File | null;
+  isSearchResult?: boolean; // 是否为搜索结果
 }
 
-export default function PredictionResults({ results, croppedImageFile }: PredictionResultsProps) {
+export default function PredictionResults({ results, croppedImageFile, isSearchResult = false }: PredictionResultsProps) {
   const [selectedRank, setSelectedRank] = useState<number | string | null>(null);
   const [hoveredRank, setHoveredRank] = useState<number | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<Record<number | string, 'sending' | 'success'>>({});
@@ -119,25 +120,29 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                 {iconUrl ? (
                   <div 
                     className={`relative w-12 h-12 flex-shrink-0 ${
-                      !croppedImageFile
-                        ? 'cursor-not-allowed opacity-50'
-                        : selectedRank === null 
-                          ? 'cursor-pointer' 
-                          : selectedRank === result.rank 
-                            ? 'cursor-default' 
-                            : 'cursor-pointer'
+                      isSearchResult 
+                        ? '' 
+                        : !croppedImageFile
+                          ? 'cursor-not-allowed opacity-50'
+                          : selectedRank === null 
+                            ? 'cursor-pointer' 
+                            : selectedRank === result.rank 
+                              ? 'cursor-default' 
+                              : 'cursor-pointer'
                     }`}
-                    onClick={() => croppedImageFile && selectedRank === null && handleFeedback(result.label, result.rank)}
-                    onMouseEnter={() => croppedImageFile && selectedRank === null && setHoveredRank(result.rank)}
-                    onMouseLeave={() => setHoveredRank(null)}
+                    onClick={!isSearchResult ? () => croppedImageFile && selectedRank === null && handleFeedback(result.label, result.rank) : undefined}
+                    onMouseEnter={!isSearchResult ? () => croppedImageFile && selectedRank === null && setHoveredRank(result.rank) : undefined}
+                    onMouseLeave={!isSearchResult ? () => setHoveredRank(null) : undefined}
                     title={
-                      !croppedImageFile 
-                        ? '无可用图片' 
-                        : selectedRank === null 
-                          ? '点击反馈此结果' 
-                          : selectedRank === result.rank 
-                            ? '已选择' 
-                            : ''
+                      isSearchResult 
+                        ? '' 
+                        : !croppedImageFile 
+                          ? '无可用图片' 
+                          : selectedRank === null 
+                            ? '点击反馈此结果' 
+                            : selectedRank === result.rank 
+                              ? '已选择' 
+                              : ''
                     }
                   >
                     <Image
@@ -151,19 +156,19 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                         target.style.display = 'none';
                       }}
                     />
-                    {(hoveredRank === result.rank && selectedRank === null && croppedImageFile) && (
+                    {!isSearchResult && (hoveredRank === result.rank && selectedRank === null && croppedImageFile) && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded transition-opacity animate-fade-in">
                         <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                     )}
-                    {feedbackStatus[result.rank] === 'sending' && (
+                    {!isSearchResult && feedbackStatus[result.rank] === 'sending' && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded">
                         <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                       </div>
                     )}
-                    {feedbackStatus[result.rank] === 'success' && (
+                    {!isSearchResult && feedbackStatus[result.rank] === 'success' && (
                       <div className="absolute inset-0 flex items-center justify-center bg-green-50/90 rounded transition-all animate-scale-in">
                         <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -205,10 +210,11 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
             </div>
           );
         })}
-        <div
-          key={UNKNOWN_RANK}
-          className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
-        >
+        {!isSearchResult && (
+          <div
+            key={UNKNOWN_RANK}
+            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
+          >
           <div className="flex items-center gap-3">
             <div 
               className={`relative w-12 h-12 flex-shrink-0 flex items-center justify-center bg-gray-100 rounded transition-opacity ${

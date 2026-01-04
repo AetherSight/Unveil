@@ -653,6 +653,7 @@ export default function Home() {
                 <PredictionResults 
                   results={searchResults} 
                   croppedImageFile={null}
+                  isSearchResult={true}
                 />
               </div>
             )}
