@@ -236,6 +236,8 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
         if (!result || !result.same_model_gears || result.same_model_gears.length === 0) {
           return null;
         }
+        const { name: currentName, id: currentId } = parseLabel(result.label);
+        const currentIconUrl = getIconUrl(currentId);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPopupRank(null)}>
             <div 
@@ -254,23 +256,89 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                   </svg>
                 </button>
               </div>
-              <div className="space-y-2">
-                {result.same_model_gears.map((gear) => (
-                  <div
-                    key={gear.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <span className="text-gray-800 font-light">{gear.name}</span>
-                    <button
-                      onClick={() => {
-                        window.open(getWikiUrl(gear.name), '_blank', 'noopener,noreferrer');
-                      }}
-                      className="px-3 py-1.5 text-xs font-light text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                    >
-                      查看 Wiki
-                    </button>
+              
+              {/* 当前装备 */}
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                  {currentIconUrl ? (
+                    <div className="relative w-12 h-12 flex-shrink-0">
+                      <Image
+                        src={currentIconUrl}
+                        alt={currentName}
+                        fill
+                        className="object-contain"
+                        unoptimized
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-500 text-sm font-light">
+                      {result.rank}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="text-gray-800 font-light">{currentName}</div>
+                    {currentId && (
+                      <span className="text-xs text-gray-400 font-light">ID: {currentId}</span>
+                    )}
                   </div>
-                ))}
+                  <button
+                    onClick={() => {
+                      window.open(getWikiUrl(currentName), '_blank', 'noopener,noreferrer');
+                    }}
+                    className="px-3 py-1.5 text-xs font-light text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                  >
+                    查看 Wiki
+                  </button>
+                </div>
+              </div>
+
+              {/* 同模型装备列表 */}
+              <div className="space-y-2">
+                {result.same_model_gears.map((gear) => {
+                  const gearIconUrl = getIconUrl(gear.id);
+                  return (
+                    <div
+                      key={gear.id}
+                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      {gearIconUrl ? (
+                        <div className="relative w-12 h-12 flex-shrink-0">
+                          <Image
+                            src={gearIconUrl}
+                            alt={gear.name}
+                            fill
+                            className="object-contain"
+                            unoptimized
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-200 text-gray-500 text-sm font-light">
+                          ?
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <div className="text-gray-800 font-light">{gear.name}</div>
+                        <span className="text-xs text-gray-400 font-light">ID: {gear.id}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          window.open(getWikiUrl(gear.name), '_blank', 'noopener,noreferrer');
+                        }}
+                        className="px-3 py-1.5 text-xs font-light text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                      >
+                        查看 Wiki
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
