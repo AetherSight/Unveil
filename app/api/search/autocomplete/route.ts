@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const REVELATION_API = process.env.REVELATION_API || 'http://localhost:5000';
+import { getNextRevelationUrl } from '@/lib/revelation-client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +14,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const url = new URL(`${REVELATION_API}/search/autocomplete`);
+    // 使用轮询获取下一个可用的服务地址
+    const revelationUrl = getNextRevelationUrl();
+    const url = new URL(`${revelationUrl}/search/autocomplete`);
     url.searchParams.set('q', q.trim());
     url.searchParams.set('limit', limit.toString());
 
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     let errorMessage = '自动补全失败';
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      errorMessage = `无法连接到后端服务 (${REVELATION_API})，请确认服务是否已启动`;
+      errorMessage = '无法连接到后端服务，请确认服务是否已启动';
     } else if (error instanceof Error) {
       errorMessage = error.message;
     }

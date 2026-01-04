@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const DISSECTOR_API = process.env.DISSECTOR_API || 'http://localhost:8000';
-const REVELATION_API = process.env.REVELATION_API || 'http://localhost:5000';
+import { getAllDissectorUrls } from '@/lib/dissector-client';
+import { getAllRevelationUrls } from '@/lib/revelation-client';
 
 export async function GET(request: NextRequest) {
   const service = request.nextUrl.searchParams.get('service');
@@ -13,7 +12,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const baseUrl = service === 'dissector' ? DISSECTOR_API : REVELATION_API;
+  // 获取第一个可用的服务地址进行健康检查
+  const urls = service === 'dissector' ? getAllDissectorUrls() : getAllRevelationUrls();
+  const baseUrl = urls.length > 0 ? urls[0] : (service === 'dissector' ? 'http://localhost:8000' : 'http://localhost:5000');
 
   try {
     const response = await fetch(`${baseUrl}/health`, {

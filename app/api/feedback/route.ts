@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const REVELATION_API = process.env.REVELATION_API || 'http://localhost:5000';
+import { getNextRevelationUrl } from '@/lib/revelation-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +26,9 @@ export async function POST(request: NextRequest) {
     backendFormData.append('image', imageFile);
     backendFormData.append('label', label);
 
-    const url = new URL(`${REVELATION_API}/feedback`);
+    // 使用轮询获取下一个可用的服务地址
+    const revelationUrl = getNextRevelationUrl();
+    const url = new URL(`${revelationUrl}/feedback`);
 
     const response = await fetch(url.toString(), {
       method: 'POST',

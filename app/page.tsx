@@ -419,7 +419,10 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-light text-gray-800 mb-4">AetherSight</h1>
+          <h1 className="text-3xl font-light text-gray-800 mb-4">
+            AetherSight
+            <sup className="ml-1 text-xs font-normal text-gray-500 align-super">Beta</sup>
+          </h1>
           <div className="flex items-center justify-center gap-2">
             <div className="w-48 h-px bg-gradient-to-r from-transparent via-gray-300 to-gray-300"></div>
             <svg className="w-3 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -574,6 +577,7 @@ export default function Home() {
                           <li>点击下方的"自动分割"按钮可以自动识别并分割图片中的各个部位，但自动分割的结果可能不够准确，建议优先使用手动选择。</li>
                           <li>如果识别结果中找到了匹配的装备，请点击右侧装备卡片上的图标进行反馈，这将帮助我们持续提升识别准确率。</li>
                           <li>相同模型的装备会合并显示，点击后可查看该模型下的所有装备变体。</li>
+                          <li>本服务目前处于试运行阶段（Beta），识别准确率和服务可用性可能不稳定，请谨慎使用。</li>
                         </ol>
               </div>
               <div className="space-y-2">
