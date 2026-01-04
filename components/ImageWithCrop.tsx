@@ -10,7 +10,7 @@ interface ImageWithCropProps {
   onClearSelection?: () => void;
 }
 
-export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskChange, cropArea, onClearSelection }: ImageWithCropProps) {
+export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskChange, cropArea, onClearSelection, onModeChange }: ImageWithCropProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

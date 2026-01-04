@@ -39,6 +39,7 @@ export default function Home() {
   const [resultView, setResultView] = useState<ResultView>('prediction');
   const [selectedSegmentPart, setSelectedSegmentPart] = useState<keyof SegmentResponse | null>(null);
   const [removedBackgroundImage, setRemovedBackgroundImage] = useState<string | null>(null); // base64 string for debug
+  const [selectionMode, setSelectionMode] = useState<'brush' | 'box'>('brush'); // 当前选择模式，默认涂抹
   const lastProcessedRef = useRef<{
     imageKey: string | null;
     cropAreaKey: string | null;
@@ -303,7 +304,7 @@ export default function Home() {
 
     try {
       // 框选模式：先调用去除背景接口；涂抹模式：直接使用原图
-      if (cropArea) {
+      if (selectionMode === 'box') {
         // 框选模式：去除背景
         const removedBgBase64 = await removeBackground(brushMaskFile);
         setRemovedBackgroundImage(removedBgBase64); // debug显示
