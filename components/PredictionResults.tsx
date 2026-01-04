@@ -368,8 +368,9 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                       </button>
                     </div>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
           </div>
         );
