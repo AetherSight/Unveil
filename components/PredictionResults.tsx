@@ -289,9 +289,12 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                     onClick={() => {
                       window.open(getWikiUrl(currentName), '_blank', 'noopener,noreferrer');
                     }}
-                    className="px-3 py-1.5 text-xs font-light text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                    title="查看 Wiki"
                   >
-                    查看 Wiki
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -332,9 +335,12 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                         onClick={() => {
                           window.open(getWikiUrl(gear.name), '_blank', 'noopener,noreferrer');
                         }}
-                        className="px-3 py-1.5 text-xs font-light text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                        title="查看 Wiki"
                       >
-                        查看 Wiki
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
                       </button>
                     </div>
                   );
