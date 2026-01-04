@@ -292,6 +292,11 @@ export default function Home() {
       return;
     }
 
+    // 防止重复点击：如果正在处理中，直接返回
+    if (processingState === 'predicting') {
+      return;
+    }
+
     // 目前只支持身体部位识别
     if (part !== 'upper') {
       setError('目前仅支持识别身体部位，其他部位暂不支持');
