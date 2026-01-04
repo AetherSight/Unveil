@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Unveil - FFXIV 装备识别",
+  title: "AetherSight",
   description: "FFXIV 装备识别系统 - 通过图片识别游戏装备",
 };
 
