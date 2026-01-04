@@ -14,7 +14,7 @@ import PredictionResults from '@/components/PredictionResults';
 import PredictionResultsSkeleton from '@/components/PredictionResultsSkeleton';
 import SegmentResults, { partLabels } from '@/components/SegmentResults';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { predictEquipment, segmentImage, removeBackground } from '@/lib/api';
+import { predictEquipment, segmentImage, removeBackground, searchAutocomplete, searchEquipment } from '@/lib/api';
 import type { PredictionResult, SegmentResponse } from '@/lib/types';
 
 type ProcessingState = 'idle' | 'predicting' | 'complete' | 'error';
@@ -40,6 +40,13 @@ export default function Home() {
   const [selectedSegmentPart, setSelectedSegmentPart] = useState<keyof SegmentResponse | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null); // base64 string or object URL for preview (box: removed bg, brush: original mask)
   const [selectionMode, setSelectionMode] = useState<'brush' | 'box'>('brush'); // 当前选择模式，默认涂抹
+  const [searchQuery, setSearchQuery] = useState<string>(''); // 搜索关键词
+  const [autocompleteResults, setAutocompleteResults] = useState<string[]>([]); // 自动补全结果
+  const [showAutocomplete, setShowAutocomplete] = useState<boolean>(false); // 是否显示自动补全
+  const [searchResults, setSearchResults] = useState<PredictionResult[]>([]); // 搜索结果
+  const [searchState, setSearchState] = useState<'idle' | 'searching' | 'complete' | 'error'>('idle'); // 搜索状态
+  const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 自动补全防抖
+  const searchInputRef = useRef<HTMLInputElement>(null); // 搜索输入框引用
   const lastProcessedRef = useRef<{
     imageKey: string | null;
     cropAreaKey: string | null;
@@ -380,6 +387,76 @@ export default function Home() {
     }
   }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile, selectionMode, processingState, selectedPart]);
 
+  // 处理搜索输入变化，触发自动补全
+  const handleSearchInputChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    
+    // 清除之前的定时器
+    if (autocompleteTimeoutRef.current) {
+      clearTimeout(autocompleteTimeoutRef.current);
+    }
+    
+    if (value.trim() === '') {
+      setAutocompleteResults([]);
+      setShowAutocomplete(false);
+      return;
+    }
+    
+    // 防抖：300ms 后触发自动补全
+    autocompleteTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await searchAutocomplete(value.trim(), 10);
+        setAutocompleteResults(results);
+        setShowAutocomplete(true);
+      } catch (err) {
+        console.error('自动补全失败:', err);
+        setAutocompleteResults([]);
+      }
+    }, 300);
+  }, []);
+
+  // 处理搜索
+  const handleSearch = useCallback(async (query?: string) => {
+    const searchTerm = query || searchQuery.trim();
+    if (!searchTerm) {
+      return;
+    }
+
+    setSearchState('searching');
+    setSearchResults([]);
+    setShowAutocomplete(false);
+
+    try {
+      const data = await searchEquipment(searchTerm, 50);
+      setSearchResults(data.results);
+      setSearchState('complete');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '搜索失败');
+      setSearchState('error');
+    }
+  }, [searchQuery]);
+
+  // 处理自动补全项点击
+  const handleAutocompleteSelect = useCallback((item: string) => {
+    setSearchQuery(item);
+    setShowAutocomplete(false);
+    handleSearch(item);
+  }, [handleSearch]);
+
+  // 点击外部关闭自动补全
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchInputRef.current && !searchInputRef.current.contains(event.target as Node)) {
+        setShowAutocomplete(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -590,6 +667,74 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col space-y-4">
+            {/* 搜索框 */}
+            <div className="w-full border border-gray-200 rounded-lg bg-white p-4">
+              <div className="relative" ref={searchInputRef}>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchInputChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSearch();
+                      } else if (e.key === 'Escape') {
+                        setShowAutocomplete(false);
+                      }
+                    }}
+                    placeholder="搜索装备名称..."
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button
+                    onClick={() => handleSearch()}
+                    disabled={!searchQuery.trim() || searchState === 'searching'}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-light hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {searchState === 'searching' ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        <span>搜索中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <span>搜索</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                
+                {/* 自动补全下拉列表 */}
+                {showAutocomplete && autocompleteResults.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {autocompleteResults.map((item, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleAutocompleteSelect(item)}
+                        className="w-full px-4 py-2 text-left text-sm font-light text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 搜索结果 */}
+            {searchResults.length > 0 && (
+              <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
+                <h3 className="text-sm font-light text-gray-700 mb-4">搜索结果</h3>
+                <PredictionResults 
+                  results={searchResults} 
+                  croppedImageFile={null}
+                />
+              </div>
+            )}
+
             {imagePreview ? (
               <>
                 {/* 分割结果区域 */}

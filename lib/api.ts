@@ -128,3 +128,70 @@ export async function checkHealth(service: 'dissector' | 'revelation'): Promise<
   }
 }
 
+export async function searchAutocomplete(
+  query: string,
+  limit: number = 10
+): Promise<string[]> {
+  if (!query || query.trim() === '') {
+    return [];
+  }
+
+  const url = new URL('/api/search/autocomplete', window.location.origin);
+  url.searchParams.set('q', query.trim());
+  url.searchParams.set('limit', Math.min(limit, 50).toString());
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      }));
+      throw new Error(error.message || error.detail || '自动补全失败');
+    }
+
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('无法连接到服务器，请检查网络连接或确认后端服务是否已启动');
+    }
+    throw error;
+  }
+}
+
+export async function searchEquipment(
+  query: string,
+  limit: number = 10
+): Promise<PredictResponse> {
+  if (!query || query.trim() === '') {
+    return { results: [] };
+  }
+
+  const url = new URL('/api/search', window.location.origin);
+  url.searchParams.set('q', query.trim());
+  url.searchParams.set('limit', Math.min(limit, 50).toString());
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      }));
+      throw new Error(error.message || error.detail || '搜索失败');
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('无法连接到服务器，请检查网络连接或确认后端服务是否已启动');
+    }
+    throw error;
+  }
+}
+
