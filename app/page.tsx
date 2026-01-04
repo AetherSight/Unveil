@@ -194,7 +194,7 @@ export default function Home() {
     setSegmentResults(null);
     setSelectedSegmentPart(null);
     setSegmentState('idle');
-    setRemovedBackgroundImage(null);
+    setPreviewImage(null);
   }, []);
 
   // 包装 setBrushMaskFile，当开始新的涂抹操作时清除分割结果
@@ -208,7 +208,7 @@ export default function Home() {
     }
     // 清除去除背景后的图片
     if (file === null) {
-      setRemovedBackgroundImage(null);
+      setPreviewImage(null);
     }
   }, [segmentResults]);
 
@@ -262,7 +262,7 @@ export default function Home() {
     setProcessingState('predicting');
     setPredictionResults([]);
     setResultView('segment');
-    setRemovedBackgroundImage(null);
+    setPreviewImage(null);
 
     try {
       // 将 base64 转换为 File（自动分割返回的图片已经处理过，不需要去除背景）
@@ -301,14 +301,14 @@ export default function Home() {
     setSelectedPart(part);
     setProcessingState('predicting');
     setPredictionResults([]);
-    setRemovedBackgroundImage(null);
+    setPreviewImage(null);
 
     try {
       // 框选模式：先调用去除背景接口；涂抹模式：直接使用原图
       if (selectionMode === 'box') {
         // 框选模式：去除背景
         const removedBgBase64 = await removeBackground(brushMaskFile);
-        setRemovedBackgroundImage(removedBgBase64); // debug显示
+        setPreviewImage(removedBgBase64); // 预览显示去除背景后的图片
         
         // 将去除背景后的base64转换为File
         const removedBgFile = base64ToFile(removedBgBase64, 'removed-bg.png');
@@ -610,12 +610,12 @@ export default function Home() {
         </div>
 
         {/* Debug: 去除背景后的图片 - 右下角浮窗 */}
-        {removedBackgroundImage && (
+        {previewImage && (
           <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-xs">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-light text-gray-700">去除背景后 (Debug)</h3>
               <button
-                onClick={() => setRemovedBackgroundImage(null)}
+                onClick={() => setPreviewImage(null)}
                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
                 title="关闭"
               >
@@ -626,7 +626,7 @@ export default function Home() {
             </div>
             <div className="flex justify-center">
               <img
-                src={`data:image/png;base64,${removedBackgroundImage}`}
+                src={`data:image/png;base64,${previewImage}`}
                 alt="去除背景后的图片"
                 className="max-w-full h-auto border border-gray-200 rounded"
                 style={{ maxHeight: '200px' }}
