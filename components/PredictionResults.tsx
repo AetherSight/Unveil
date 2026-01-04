@@ -263,35 +263,38 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
               {/* 当前装备 */}
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <div className="space-y-3">
-                  {/* 渲染图 - 多个角度 */}
+                  {/* 渲染图 - 从目录读取前3个文件 */}
                   {currentId && (
                     <div className="flex justify-center gap-2">
-                      {['h0', 'h45', 'h225'].map((angle) => {
-                        const imageKey = `${currentId}-${angle}`;
-                        const hasFailed = failedAngles.has(imageKey);
-                        return (
-                          <div key={angle} className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
-                            {hasFailed && angle !== 'h0' ? (
-                              <span className="text-xs text-gray-400 font-light">文件不存在</span>
-                            ) : (
-                              <Image
-                                src={getRenderUrl(currentId, currentName, angle) || ''}
-                                alt={`${currentName} 渲染图 ${angle}`}
-                                fill
-                                className="object-contain"
-                                unoptimized
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  if (angle !== 'h0') {
+                      {renderFiles.length > 0 ? (
+                        renderFiles.map((file) => {
+                          const imageKey = `${currentId}-${file.angle}`;
+                          const hasFailed = failedAngles.has(imageKey);
+                          return (
+                            <div key={file.fileName} className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
+                              {hasFailed ? (
+                                <span className="text-xs text-gray-400 font-light">文件不存在</span>
+                              ) : (
+                                <Image
+                                  src={getRenderUrl(currentId, currentName, file.angle) || ''}
+                                  alt={`${currentName} 渲染图 ${file.angle}`}
+                                  fill
+                                  className="object-contain"
+                                  unoptimized
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
                                     setFailedAngles(prev => new Set(prev).add(imageKey));
-                                  }
-                                }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
+                                  }}
+                                />
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        // 加载中或没有文件
+                        <div className="text-xs text-gray-400 font-light">加载中...</div>
+                      )}
                     </div>
                   )}
                   {/* 装备信息 */}
