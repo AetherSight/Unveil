@@ -136,14 +136,19 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                   </div>
                 )}
                 <div className="flex flex-col">
-                  <a
-                    href={getWikiUrl(name)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-800 font-light hover:text-gray-600 transition-colors"
+                  <button
+                    onClick={() => {
+                      if (result.same_model_gears && result.same_model_gears.length > 0) {
+                        setPopupRank(result.rank);
+                      } else {
+                        // 如果没有同模型装备，直接跳转wiki
+                        window.open(getWikiUrl(name), '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                    className="text-gray-800 font-light hover:text-gray-600 transition-colors text-left"
                   >
                     {name}
-                  </a>
+                  </button>
                   {id && (
                     <span className="text-xs text-gray-400 font-light">ID: {id}</span>
                   )}
@@ -224,6 +229,53 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
           </div>
         </div>
       </div>
+
+      {/* 同模型装备 Popup */}
+      {popupRank !== null && (() => {
+        const result = results.find(r => r.rank === popupRank);
+        if (!result || !result.same_model_gears || result.same_model_gears.length === 0) {
+          return null;
+        }
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPopupRank(null)}>
+            <div 
+              className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-light text-gray-800">同模型装备</h3>
+                <button
+                  onClick={() => setPopupRank(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  title="关闭"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="space-y-2">
+                {result.same_model_gears.map((gear) => (
+                  <div
+                    key={gear.id}
+                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="text-gray-800 font-light">{gear.name}</span>
+                    <button
+                      onClick={() => {
+                        window.open(getWikiUrl(gear.name), '_blank', 'noopener,noreferrer');
+                      }}
+                      className="px-3 py-1.5 text-xs font-light text-gray-600 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
+                    >
+                      查看 Wiki
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
