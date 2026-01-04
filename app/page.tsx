@@ -378,7 +378,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '识别失败');
       setProcessingState('error');
     }
-  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile]);
+  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile, selectionMode, processingState, selectedPart]);
 
   return (
     <div className="min-h-screen bg-white">
