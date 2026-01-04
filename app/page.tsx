@@ -658,28 +658,24 @@ export default function Home() {
 
             {imagePreview ? (
               <>
-                {/* 分割结果区域 - 持续显示 */}
-                <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-                  <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
-                  {segmentState === 'segmenting' ? (
-                    <div className="flex items-center justify-center py-12">
-                      <LoadingSpinner size="sm" />
-                      <span className="ml-3 text-sm text-gray-400 font-light">分割中...</span>
-                    </div>
-                  ) : segmentResults ? (
-                    <SegmentResults 
-                      results={segmentResults} 
-                      selectedPart={selectedSegmentPart}
-                      onPartClick={handleSegmentPartClick}
-                    />
-                  ) : (
-                    <SegmentResults 
-                      results={null} 
-                      selectedPart={selectedSegmentPart}
-                      onPartClick={handleSegmentPartClick}
-                    />
-                  )}
-                </div>
+                {/* 分割结果区域 - 仅在自动分割后显示 */}
+                {(segmentResults || segmentState === 'segmenting') && (
+                  <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
+                    <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
+                    {segmentState === 'segmenting' ? (
+                      <div className="flex items-center justify-center py-12">
+                        <LoadingSpinner size="sm" />
+                        <span className="ml-3 text-sm text-gray-400 font-light">分割中...</span>
+                      </div>
+                    ) : segmentResults ? (
+                      <SegmentResults 
+                        results={segmentResults} 
+                        selectedPart={selectedSegmentPart}
+                        onPartClick={handleSegmentPartClick}
+                      />
+                    ) : null}
+                  </div>
+                )}
                 
                 {/* 识别结果区域 */}
                 <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
