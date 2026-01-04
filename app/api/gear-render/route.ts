@@ -39,22 +39,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 验证角度格式（现在支持更多格式，包括完整文件名）
-    // 允许 h0, h45, h225 或完整文件名（如：46881_hyur_midlander_female_h90_p45）
-    if (!/^h\d+|^[\d_]+h\d+/.test(angle)) {
-      // 如果角度不是标准格式，可能是完整文件名
-      if (!angle.includes('_')) {
-        return NextResponse.json(
-          { message: '无效的角度格式' },
-          { status: 400 }
-        );
-      }
-    }
-
+    // angle 参数现在可能是：
+    // 1. 简单角度格式：h0, h45, h225
+    // 2. 完整文件名（去掉.png后缀）：46881_hyur_midlander_female_h90_p45
+    
     // 构建文件路径
     // 格式：名称_id\id_h0_p0.png 或 id_hyur_midlander_female_h90_p45.png
     const folderName = `${gearName}_${gearId}`;
-    // 如果angle包含下划线，说明是完整文件名，直接使用；否则构建标准格式
+    // 如果angle包含下划线，说明是完整文件名（去掉.png），直接添加.png；否则构建标准格式
     const fileName = angle.includes('_') ? `${angle}.png` : `${gearId}_${angle}_p0.png`;
     
     // 规范化路径，防止路径遍历
