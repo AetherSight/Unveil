@@ -631,7 +631,9 @@ export default function Home() {
         {previewImage && (
           <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-xs">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-light text-gray-700">去除背景后 (Debug)</h3>
+              <h3 className="text-xs font-light text-gray-700">
+                {selectionMode === 'box' ? '去除背景后 (Debug)' : '识别预览 (Debug)'}
+              </h3>
               <button
                 onClick={() => setPreviewImage(null)}
                 className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
