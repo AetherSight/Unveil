@@ -290,6 +290,11 @@ export default function Home() {
       return;
     }
 
+    // 判断当前模式：有cropArea是框选，没有cropArea是涂抹
+    const currentMode = cropArea ? '框选' : '涂抹';
+    const shouldRemoveBackground = cropArea ? 'Y' : 'N';
+    console.log(`当前被激活的模式：${currentMode}，那么我应该调用remove background吗？${shouldRemoveBackground}`);
+
     setError(null);
     setSelectedPart(part);
     setProcessingState('predicting');
@@ -297,18 +302,29 @@ export default function Home() {
     setRemovedBackgroundImage(null);
 
     try {
-      // 先调用去除背景接口
-      const removedBgBase64 = await removeBackground(brushMaskFile);
-      setRemovedBackgroundImage(removedBgBase64); // debug显示
-      
-      // 将去除背景后的base64转换为File
-      const removedBgFile = base64ToFile(removedBgBase64, 'removed-bg.png');
-      setCroppedImageFile(removedBgFile);
+      // 框选模式：先调用去除背景接口；涂抹模式：直接使用原图
+      if (cropArea) {
+        // 框选模式：去除背景
+        const removedBgBase64 = await removeBackground(brushMaskFile);
+        setRemovedBackgroundImage(removedBgBase64); // debug显示
+        
+        // 将去除背景后的base64转换为File
+        const removedBgFile = base64ToFile(removedBgBase64, 'removed-bg.png');
+        setCroppedImageFile(removedBgFile);
 
-      // 调用识别接口
-      const predictData = await predictEquipment(removedBgFile, 10);
-      setPredictionResults(predictData.results);
-      setProcessingState('complete');
+        // 调用识别接口
+        const predictData = await predictEquipment(removedBgFile, 10);
+        setPredictionResults(predictData.results);
+        setProcessingState('complete');
+      } else {
+        // 涂抹模式：直接使用原图，不去除背景
+        setCroppedImageFile(brushMaskFile);
+
+        // 调用识别接口
+        const predictData = await predictEquipment(brushMaskFile, 10);
+        setPredictionResults(predictData.results);
+        setProcessingState('complete');
+      }
       
       lastProcessedRef.current = {
         imageKey: `${selectedImage?.name}-${selectedImage?.size}-${selectedImage?.lastModified}`,
@@ -320,7 +336,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '识别失败');
       setProcessingState('error');
     }
-  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, base64ToFile]);
+  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile]);
 
   return (
     <div className="min-h-screen bg-white">
