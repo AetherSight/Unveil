@@ -57,6 +57,9 @@ export async function GET(request: NextRequest) {
       
       // 过滤出 PNG 文件
       const pngFiles = files.filter(file => file.toLowerCase().endsWith('.png'));
+      
+      console.log('目录文件列表:', files);
+      console.log('过滤后的PNG文件:', pngFiles);
 
       // 优先匹配特定模式：*_h0_p0.png, *_h45_p0.png, *_h225_p0.png, *_h255_p0.png
       const preferredPatterns = [
@@ -96,6 +99,10 @@ export async function GET(request: NextRequest) {
       
       // 合并：优先文件在前，其他文件在后，总共取前3个
       const selectedFiles = [...matchedFiles, ...otherFiles].slice(0, 3);
+      
+      console.log('匹配的优先文件:', matchedFiles);
+      console.log('其他文件:', otherFiles);
+      console.log('最终选择的文件:', selectedFiles);
 
       // 从文件名中提取信息
       // 直接使用完整文件名（去掉.png后缀）作为angle，这样可以直接用于构建文件路径
@@ -107,6 +114,8 @@ export async function GET(request: NextRequest) {
           angle: angleKey, // 使用完整文件名（去掉.png）作为angle
         };
       });
+      
+      console.log('处理后的文件列表:', fileList);
 
       return NextResponse.json({ files: fileList });
     } catch (dirError) {

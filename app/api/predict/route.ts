@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
       const error = await response.json().catch(() => ({
         message: `HTTP ${response.status}: ${response.statusText}`,
       }));
-      console.error(`Revelation API error: ${response.status} ${response.statusText}`, error);
       return NextResponse.json(
         { message: error.message || error.detail || '识别失败' },
         { status: response.status }
