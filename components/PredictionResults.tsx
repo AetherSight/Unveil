@@ -197,6 +197,19 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                   )}
                 </div>
               </div>
+              {!isSearchResult && (
+                <div className="flex items-center gap-2">
+                  <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-400 transition-all"
+                      style={{ width: `${result.score * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-500 w-12 text-right font-light">
+                    {(result.score * 100).toFixed(1)}%
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}
