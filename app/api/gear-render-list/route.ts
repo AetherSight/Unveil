@@ -64,31 +64,19 @@ export async function GET(request: NextRequest) {
       console.log('目录文件列表:', files);
       console.log('过滤后的PNG文件:', pngFiles);
 
-      // 从文件名中提取角度信息
+      // 从文件名中提取信息
       // 格式可能是：id_h角度_p0.png 或 id_hyur_midlander_female_h角度_p角度.png
+      // 直接使用完整文件名（去掉.png后缀）作为angle，这样可以直接用于构建文件路径
       const fileList = pngFiles.map(file => {
-        // 尝试匹配格式：id_h角度_p角度.png（包含种族信息）
-        let match = file.match(/^(\d+)_[^_]+_h(\d+)_p(-?\d+)\.png$/);
-        if (match) {
-          return {
-            fileName: file,
-            angle: `h${match[2]}`,
-          };
-        }
-        // 尝试匹配格式：id_h角度_p0.png（简单格式）
-        match = file.match(/^(\d+)_h(\d+)_p0\.png$/);
-        if (match) {
-          return {
-            fileName: file,
-            angle: `h${match[2]}`,
-          };
-        }
-        // 如果都不匹配，使用文件名作为角度标识
+        // 去掉.png后缀，作为angle参数传递给gear-render接口
+        const angleKey = file.replace(/\.png$/, '');
         return {
           fileName: file,
-          angle: file.replace(/\.png$/, ''), // 使用完整文件名（去掉.png）作为角度
+          angle: angleKey, // 使用完整文件名（去掉.png）作为angle
         };
       });
+      
+      console.log('处理后的文件列表:', fileList);
 
       return NextResponse.json({ files: fileList });
     } catch (dirError) {
