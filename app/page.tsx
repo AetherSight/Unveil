@@ -263,19 +263,12 @@ export default function Home() {
     setRemovedBackgroundImage(null);
 
     try {
-      // 将 base64 转换为 File
+      // 将 base64 转换为 File（自动分割返回的图片已经处理过，不需要去除背景）
       const partFile = base64ToFile(base64, `${part}.png`);
-      
-      // 先调用去除背景接口
-      const removedBgBase64 = await removeBackground(partFile);
-      setRemovedBackgroundImage(removedBgBase64); // debug显示
-      
-      // 将去除背景后的base64转换为File
-      const removedBgFile = base64ToFile(removedBgBase64, `${part}-no-bg.png`);
-      setCroppedImageFile(removedBgFile);
+      setCroppedImageFile(partFile);
 
-      // 调用识别接口
-      const predictData = await predictEquipment(removedBgFile, 10);
+      // 直接调用识别接口
+      const predictData = await predictEquipment(partFile, 10);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
     } catch (err) {
