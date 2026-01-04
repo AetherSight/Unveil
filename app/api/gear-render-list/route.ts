@@ -55,19 +55,58 @@ export async function GET(request: NextRequest) {
       // 读取目录中的文件
       const files = await readdir(folderPath);
       
-      // 过滤出 PNG 文件，并按文件名排序（保证幂等性）
-      const pngFiles = files
-        .filter(file => file.toLowerCase().endsWith('.png'))
-        .sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true })) // 使用localeCompare确保稳定的排序
-        .slice(0, 3); // 只取前3个
+      // 过滤出 PNG 文件
+      const pngFiles = files.filter(file => file.toLowerCase().endsWith('.png'));
       
       console.log('目录文件列表:', files);
       console.log('过滤后的PNG文件:', pngFiles);
 
+      // 优先匹配特定模式：*_h0_p0.png, *_h45_p0.png, *_h225_p0.png, *_h255_p0.png
+      const preferredPatterns = [
+        /_h0_p0\.png$/i,
+        /_h45_p0\.png$/i,
+        /_h225_p0\.png$/i,
+        /_h255_p0\.png$/i,
+      ];
+      
+      // 按优先级匹配文件
+      const matchedFiles: string[] = [];
+      const otherFiles: string[] = [];
+      
+      for (const file of pngFiles) {
+        const isPreferred = preferredPatterns.some(pattern => pattern.test(file));
+        if (isPreferred) {
+          matchedFiles.push(file);
+        } else {
+          otherFiles.push(file);
+        }
+      }
+      
+      // 对匹配的文件按模式顺序排序（h0, h45, h225, h255）
+      matchedFiles.sort((a, b) => {
+        const getPriority = (filename: string) => {
+          if (/_h0_p0\.png$/i.test(filename)) return 0;
+          if (/_h45_p0\.png$/i.test(filename)) return 1;
+          if (/_h225_p0\.png$/i.test(filename)) return 2;
+          if (/_h255_p0\.png$/i.test(filename)) return 3;
+          return 999;
+        };
+        return getPriority(a) - getPriority(b);
+      });
+      
+      // 其他文件按文件名排序
+      otherFiles.sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true }));
+      
+      // 合并：优先文件在前，其他文件在后，总共取前3个
+      const selectedFiles = [...matchedFiles, ...otherFiles].slice(0, 3);
+      
+      console.log('匹配的优先文件:', matchedFiles);
+      console.log('其他文件:', otherFiles);
+      console.log('最终选择的文件:', selectedFiles);
+
       // 从文件名中提取信息
-      // 格式可能是：id_h角度_p0.png 或 id_hyur_midlander_female_h角度_p角度.png
       // 直接使用完整文件名（去掉.png后缀）作为angle，这样可以直接用于构建文件路径
-      const fileList = pngFiles.map(file => {
+      const fileList = selectedFiles.map(file => {
         // 去掉.png后缀，作为angle参数传递给gear-render接口
         const angleKey = file.replace(/\.png$/, '');
         return {
