@@ -38,7 +38,7 @@ export default function Home() {
   const [segmentState, setSegmentState] = useState<'idle' | 'segmenting' | 'complete' | 'error'>('idle');
   const [resultView, setResultView] = useState<ResultView>('prediction');
   const [selectedSegmentPart, setSelectedSegmentPart] = useState<keyof SegmentResponse | null>(null);
-  const [removedBackgroundImage, setRemovedBackgroundImage] = useState<string | null>(null); // base64 string for debug
+  const [previewImage, setPreviewImage] = useState<string | null>(null); // base64 string or object URL for preview (box: removed bg, brush: original mask)
   const [selectionMode, setSelectionMode] = useState<'brush' | 'box'>('brush'); // 当前选择模式，默认涂抹
   const lastProcessedRef = useRef<{
     imageKey: string | null;
@@ -182,7 +182,7 @@ export default function Home() {
     setSegmentState('idle');
     setResultView('prediction');
     setSelectedSegmentPart(null);
-    setRemovedBackgroundImage(null);
+    setPreviewImage(null);
     setSelectionMode('brush'); // Reset to default brush mode
     lastProcessedRef.current = { imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null };
   }, []);
