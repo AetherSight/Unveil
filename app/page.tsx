@@ -183,6 +183,7 @@ export default function Home() {
     setResultView('prediction');
     setSelectedSegmentPart(null);
     setRemovedBackgroundImage(null);
+    setSelectionMode('brush'); // Reset to default brush mode
     lastProcessedRef.current = { imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null };
   }, []);
 
@@ -291,9 +292,9 @@ export default function Home() {
       return;
     }
 
-    // 判断当前模式：有cropArea是框选，没有cropArea是涂抹
-    const currentMode = cropArea ? '框选' : '涂抹';
-    const shouldRemoveBackground = cropArea ? 'Y' : 'N';
+    // 使用存储的模式状态
+    const currentMode = selectionMode === 'box' ? '框选' : '涂抹';
+    const shouldRemoveBackground = selectionMode === 'box' ? 'Y' : 'N';
     console.log(`当前被激活的模式：${currentMode}，那么我应该调用remove background吗？${shouldRemoveBackground}`);
 
     setError(null);
