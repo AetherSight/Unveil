@@ -50,6 +50,36 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
     return `/api/gear-render?${params.toString()}`;
   };
 
+  // 当打开新的popup时，重置失败角度记录并获取文件列表
+  useEffect(() => {
+    if (popupRank !== null) {
+      setFailedAngles(new Set());
+      const result = results.find(r => r.rank === popupRank);
+      if (result) {
+        const { name, id } = parseLabel(result.label);
+        if (id && name) {
+          // 获取文件列表
+          const params = new URLSearchParams({ id, name });
+          fetch(`/api/gear-render-list?${params.toString()}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.files && Array.isArray(data.files)) {
+                setRenderFiles(data.files);
+              } else {
+                setRenderFiles([]);
+              }
+            })
+            .catch(err => {
+              console.error('获取渲染图列表失败:', err);
+              setRenderFiles([]);
+            });
+        }
+      }
+    } else {
+      setRenderFiles([]);
+    }
+  }, [popupRank, results]);
+
   const handleFeedback = async (label: string, rank: number | string) => {
     if (!croppedImageFile || selectedRank !== null) {
       return;
