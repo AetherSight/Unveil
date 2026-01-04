@@ -63,9 +63,12 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
           fetch(`/api/gear-render-list?${params.toString()}`)
             .then(res => res.json())
             .then(data => {
+              console.log('获取到的文件列表:', data);
               if (data.files && Array.isArray(data.files)) {
+                console.log('设置文件列表:', data.files);
                 setRenderFiles(data.files);
               } else {
+                console.log('文件列表为空或格式错误');
                 setRenderFiles([]);
               }
             })
