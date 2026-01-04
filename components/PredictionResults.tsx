@@ -144,12 +144,8 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
                 <div className="flex flex-col">
                   <button
                     onClick={() => {
-                      if (result.same_model_gears && result.same_model_gears.length > 0) {
-                        setPopupRank(result.rank);
-                      } else {
-                        // 如果没有同模型装备，直接跳转wiki
-                        window.open(getWikiUrl(name), '_blank', 'noopener,noreferrer');
-                      }
+                      // 总是显示popup，即使没有同模型装备
+                      setPopupRank(result.rank);
                     }}
                     className="text-gray-800 font-light hover:text-gray-600 transition-colors text-left"
                   >
@@ -239,7 +235,7 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
       {/* 同模型装备 Popup */}
       {popupRank !== null && (() => {
         const result = results.find(r => r.rank === popupRank);
-        if (!result || !result.same_model_gears || result.same_model_gears.length === 0) {
+        if (!result) {
           return null;
         }
         const { name: currentName, id: currentId } = parseLabel(result.label);
