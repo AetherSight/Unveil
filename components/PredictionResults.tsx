@@ -181,13 +181,14 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                     {result.rank}
                   </div>
                 )}
-                <div className="flex flex-col">
+                <div className={`flex flex-col ${isSearchResult ? 'flex-1 min-w-0' : ''}`}>
                   <button
                     onClick={() => {
                       // 总是显示popup，即使没有同模型装备
                       setPopupRank(result.rank);
                     }}
-                    className="text-gray-800 font-light hover:text-gray-600 transition-colors text-left"
+                    className={`text-gray-800 font-light hover:text-gray-600 transition-colors text-left ${isSearchResult ? 'truncate' : ''}`}
+                    title={isSearchResult ? name : undefined}
                   >
                     {name}
                   </button>
