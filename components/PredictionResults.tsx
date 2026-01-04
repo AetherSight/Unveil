@@ -89,11 +89,11 @@ export default function PredictionResults({ results, croppedImageFile }: Predict
     }
 
     setSelectedRank(rank);
-    setFeedbackStatus(prev => ({ ...prev, [rank]: 'sending' }));
+    setFeedbackStatus(prev => ({ ...prev, [rank]: 'sending' as const }));
 
     try {
       await sendFeedback(croppedImageFile, label);
-      setFeedbackStatus(prev => ({ ...prev, [rank]: 'success' }));
+      setFeedbackStatus(prev => ({ ...prev, [rank]: 'success' as const }));
     } catch (error) {
       setSelectedRank(null);
       setFeedbackStatus(prev => {
