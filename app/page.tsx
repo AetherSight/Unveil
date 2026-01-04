@@ -395,13 +395,13 @@ export default function Home() {
                   <div className="mt-1">
                     <div className="bg-white/95 border border-gray-200 rounded-lg p-2 shadow-lg">
                       <div className="flex gap-1">
-                        {(['head', 'upper', 'lower', 'shoes', 'hands'] as const).map((part) => {
+                        {(['head', 'upper', 'hands', 'lower', 'shoes'] as const).map((part) => {
                           const partLabelsMap: Record<typeof part, string> = {
-                            head: '头',
+                            head: '头部',
                             upper: '身体',
-                            lower: '下身',
-                            shoes: '鞋子',
-                            hands: '手',
+                            hands: '手部',
+                            lower: '腿部',
+                            shoes: '脚部',
                           };
                           const isEnabled = part === 'upper';
                           const isSelected = selectedPart === part;
