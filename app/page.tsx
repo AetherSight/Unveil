@@ -458,24 +458,6 @@ export default function Home() {
                     </div>
                   </div>
                 )}
-                
-                {/* 自动分割按钮 - 显示在使用说明下方 */}
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleSegment}
-                    disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
-                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-light hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {segmentState === 'segmenting' ? (
-                      <>
-                        <LoadingSpinner size="sm" />
-                        <span>分割中...</span>
-                      </>
-                    ) : (
-                      '自动分割'
-                    )}
-                  </button>
-                </div>
               </>
             ) : null}
             
@@ -513,6 +495,26 @@ export default function Home() {
                 />
               </div>
             </div>
+            
+            {/* 自动分割按钮 - 显示在使用说明下方 */}
+            {imagePreview && (
+              <div className="flex gap-4">
+                <button
+                  onClick={handleSegment}
+                  disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-light hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {segmentState === 'segmenting' ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      <span>分割中...</span>
+                    </>
+                  ) : (
+                    '自动分割'
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col space-y-4">
