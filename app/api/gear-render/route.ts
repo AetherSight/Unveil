@@ -55,6 +55,11 @@ export async function GET(request: NextRequest) {
 
     // 输出文件路径用于调试
     console.log('渲染图文件路径:', filePath);
+    console.log('目录路径:', folderPath);
+    console.log('文件名:', fileName);
+    console.log('gearName:', gearName);
+    console.log('gearId:', gearId);
+    console.log('angle:', angle);
 
     // 验证路径是否在允许的目录内（防止路径遍历攻击）
     const normalizedBaseDir = join(RENDER_BASE_DIR).toLowerCase();
