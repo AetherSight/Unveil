@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const REVELATION_API = process.env.REVELATION_API || 'http://localhost:5000';
+const DISSECTOR_API = process.env.DISSECTOR_API || 'http://localhost:8000';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const backendFormData = new FormData();
     backendFormData.append('file', imageFile);
 
-    const response = await fetch(`${REVELATION_API}/remove-background`, {
+    const response = await fetch(`${DISSECTOR_API}/remove-background`, {
       method: 'POST',
       body: backendFormData,
     });
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     let errorMessage = '去除背景失败';
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      errorMessage = `无法连接到后端服务 (${REVELATION_API})，请确认服务是否已启动`;
+      errorMessage = `无法连接到后端服务 (${DISSECTOR_API})，请确认服务是否已启动`;
     } else if (error instanceof Error) {
       errorMessage = error.message;
     }
