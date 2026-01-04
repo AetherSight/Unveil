@@ -377,6 +377,7 @@ export default function Home() {
                     onCropAreaChange={handleCropAreaChange}
                     onBrushMaskChange={handleBrushMaskChange}
                     cropArea={cropArea}
+                    onModeChange={setSelectionMode}
                   />
                   <div className="absolute top-2 right-2 flex flex-col gap-2 z-20">
                     <button
