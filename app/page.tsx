@@ -510,11 +510,12 @@ export default function Home() {
             <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
               <div className="space-y-2 pb-3 border-b border-gray-200">
                 <h3 className="text-sm text-gray-700 font-medium mb-2">使用说明</h3>
-                <ol className="space-y-1.5 text-xs text-gray-600 font-light list-decimal list-inside">
-                  <li>使用涂抹工具或剪裁工具选择图片中的部位，然后在弹出的部位选择框中选择要识别的部位（仅支持身体），识别结果将显示在右侧。</li>
-                  <li>点击下方的"自动分割"按钮可以自动识别并分割图片中的各个部位，但自动分割的结果可能不够准确，建议优先使用手动选择。</li>
-                  <li>如果识别结果中找到了匹配的装备，请点击右侧装备卡片上的图标进行反馈，这将帮助我们持续提升识别准确率。</li>
-                </ol>
+                        <ol className="space-y-1.5 text-xs text-gray-600 font-light list-decimal list-inside">
+                          <li>使用涂抹工具或剪裁工具选择图片中的部位，然后在弹出的部位选择框中选择要识别的部位（仅支持身体），识别结果将显示在右侧。</li>
+                          <li>点击下方的"自动分割"按钮可以自动识别并分割图片中的各个部位，但自动分割的结果可能不够准确，建议优先使用手动选择。</li>
+                          <li>如果识别结果中找到了匹配的装备，请点击右侧装备卡片上的图标进行反馈，这将帮助我们持续提升识别准确率。</li>
+                          <li>识别结果中，相同模型的装备会合并显示。将鼠标移动到装备名称上即可查看该模型下的所有装备变体。</li>
+                        </ol>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
