@@ -107,19 +107,22 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
 
   return (
     <div className="w-full">
-      <div className="space-y-2">
+      <div className={isSearchResult ? "grid grid-cols-2 gap-3" : "space-y-2"}>
         {results.map((result) => {
           const { name, id } = parseLabel(result.label);
           const iconUrl = getIconUrl(id);
           return (
             <div
               key={result.rank}
-              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
+              className={isSearchResult 
+                ? "flex flex-col items-center p-3 border border-gray-200 rounded-lg bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+                : "flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
+              }
             >
-              <div className="flex items-center gap-3">
+              <div className={isSearchResult ? "flex flex-col items-center gap-2 w-full" : "flex items-center gap-3"}>
                 {iconUrl ? (
                   <div 
-                    className={`relative w-12 h-12 flex-shrink-0 ${
+                    className={`relative ${isSearchResult ? 'w-16 h-16' : 'w-12 h-12'} flex-shrink-0 ${
                       isSearchResult 
                         ? '' 
                         : !croppedImageFile
@@ -177,17 +180,17 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-sm font-light">
+                  <div className={`flex items-center justify-center ${isSearchResult ? 'w-16 h-16' : 'w-8 h-8'} rounded-full bg-gray-100 text-gray-600 text-sm font-light`}>
                     {result.rank}
                   </div>
                 )}
-                <div className="flex flex-col">
+                <div className={isSearchResult ? "flex flex-col items-center text-center w-full" : "flex flex-col"}>
                   <button
                     onClick={() => {
                       // 总是显示popup，即使没有同模型装备
                       setPopupRank(result.rank);
                     }}
-                    className="text-gray-800 font-light hover:text-gray-600 transition-colors text-left"
+                    className={`text-gray-800 font-light hover:text-gray-600 transition-colors ${isSearchResult ? 'text-center' : 'text-left'}`}
                   >
                     {name}
                   </button>
@@ -196,17 +199,19 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                   )}
                 </div>
               </div>
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-400 transition-all"
-                  style={{ width: `${result.score * 100}%` }}
-                />
+            {!isSearchResult && (
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-400 transition-all"
+                    style={{ width: `${result.score * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-500 w-12 text-right font-light">
+                  {(result.score * 100).toFixed(1)}%
+                </span>
               </div>
-              <span className="text-xs text-gray-500 w-12 text-right font-light">
-                {(result.score * 100).toFixed(1)}%
-              </span>
-            </div>
+            )}
             </div>
           );
         })}
