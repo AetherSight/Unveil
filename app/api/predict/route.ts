@@ -4,7 +4,7 @@ import { logRequest, logError } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   const start = Date.now();
-  const url = request.nextUrl.pathname + request.nextUrl.search;
+  const requestUrl = request.nextUrl.pathname + request.nextUrl.search;
   const ip = request.headers.get('x-real-ip') || 
              request.headers.get('x-forwarded-for')?.split(',')[0] || 
              undefined;
@@ -26,10 +26,10 @@ export async function POST(request: NextRequest) {
 
     // 使用轮询获取下一个可用的服务地址
     const revelationUrl = getNextRevelationUrl();
-    const url = new URL(`${revelationUrl}/predict`);
-    url.searchParams.set('top_k', topK.toString());
+    const backendUrl = new URL(`${revelationUrl}/predict`);
+    backendUrl.searchParams.set('top_k', topK.toString());
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(backendUrl.toString(), {
       method: 'POST',
       body: backendFormData,
     });
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       }
       
       const duration = Date.now() - start;
-      logRequest('POST', url, response.status, duration, ip);
+      logRequest('POST', requestUrl, response.status, duration, ip);
       return NextResponse.json(
         { message: userMessage },
         { status: response.status }
@@ -58,11 +58,11 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     const duration = Date.now() - start;
-    logRequest('POST', url, 200, duration, ip);
+    logRequest('POST', requestUrl, 200, duration, ip);
     return NextResponse.json(data);
   } catch (error) {
     const duration = Date.now() - start;
-    logError('POST', url, error, ip);
+    logError('POST', requestUrl, error, ip);
     let errorMessage = '识别失败';
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
