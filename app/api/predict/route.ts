@@ -31,8 +31,18 @@ export async function POST(request: NextRequest) {
       const error = await response.json().catch(() => ({
         message: `HTTP ${response.status}: ${response.statusText}`,
       }));
+      
+      // 处理模型未加载的错误
+      const errorMessage = error.message || error.detail || '识别失败';
+      let userMessage = errorMessage;
+      
+      if (errorMessage.toLowerCase().includes('models not loaded') || 
+          errorMessage.toLowerCase().includes('model not loaded')) {
+        userMessage = '后端模型正在加载中，请稍候片刻后重试。如果问题持续，请检查后端服务日志。';
+      }
+      
       return NextResponse.json(
-        { message: error.message || error.detail || '识别失败' },
+        { message: userMessage },
         { status: response.status }
       );
     }

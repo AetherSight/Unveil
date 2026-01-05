@@ -148,6 +148,7 @@ export default function ImageCrop({ imageSrc, onCrop, onUseFullImage }: ImageCro
         <div
           ref={containerRef}
           className="relative w-full h-full cursor-crosshair select-none"
+          style={{ touchAction: 'none' }}
           onMouseDown={handleStart}
           onMouseMove={handleMove}
           onMouseUp={handleEnd}

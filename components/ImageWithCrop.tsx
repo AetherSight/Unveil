@@ -740,17 +740,31 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
 
   useEffect(() => {
     if (isDrawing && mode === 'brush') {
-      const handleMove = (e: Event) => handleBrushMove(e as unknown as MouseEvent | TouchEvent);
-      const handleEnd = () => handleBrushEnd();
+      const handleMove = (e: Event) => {
+        const event = e as unknown as MouseEvent | TouchEvent;
+        if ('touches' in event) {
+          event.preventDefault();
+        }
+        handleBrushMove(event);
+      };
+      const handleEnd = (e?: Event) => {
+        if (e && 'touches' in e) {
+          e.preventDefault();
+        }
+        handleBrushEnd();
+      };
       document.addEventListener('mousemove', handleMove);
       document.addEventListener('mouseup', handleEnd);
       document.addEventListener('touchmove', handleMove, { passive: false });
-      document.addEventListener('touchend', handleEnd);
+      document.addEventListener('touchend', handleEnd, { passive: false });
+      // 阻止页面滚动
+      document.body.style.overflow = 'hidden';
       return () => {
         document.removeEventListener('mousemove', handleMove);
         document.removeEventListener('mouseup', handleEnd);
         document.removeEventListener('touchmove', handleMove);
         document.removeEventListener('touchend', handleEnd);
+        document.body.style.overflow = '';
       };
     }
   }, [isDrawing, mode, handleBrushMove, handleBrushEnd]);
@@ -950,17 +964,31 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
   // 框选模式：全局事件监听
   useEffect(() => {
     if (isDragging && mode === 'box') {
-      const handleMove = (e: Event) => handleBoxMove(e as unknown as MouseEvent | TouchEvent);
-      const handleEnd = () => handleBoxEnd();
+      const handleMove = (e: Event) => {
+        const event = e as unknown as MouseEvent | TouchEvent;
+        if ('touches' in event) {
+          event.preventDefault();
+        }
+        handleBoxMove(event);
+      };
+      const handleEnd = (e?: Event) => {
+        if (e && 'touches' in e) {
+          e.preventDefault();
+        }
+        handleBoxEnd();
+      };
       document.addEventListener('mousemove', handleMove);
       document.addEventListener('mouseup', handleEnd);
       document.addEventListener('touchmove', handleMove, { passive: false });
-      document.addEventListener('touchend', handleEnd);
+      document.addEventListener('touchend', handleEnd, { passive: false });
+      // 阻止页面滚动
+      document.body.style.overflow = 'hidden';
       return () => {
         document.removeEventListener('mousemove', handleMove);
         document.removeEventListener('mouseup', handleEnd);
         document.removeEventListener('touchmove', handleMove);
         document.removeEventListener('touchend', handleEnd);
+        document.body.style.overflow = '';
       };
     }
   }, [isDragging, mode, handleBoxMove, handleBoxEnd]);
@@ -971,6 +999,7 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
       <div
         ref={containerRef}
         className={`relative w-full h-full select-none ${mode === 'box' ? 'cursor-crosshair' : ''}`}
+        style={{ touchAction: 'none' }}
         onMouseDown={mode === 'brush' ? handleBrushStart : handleBoxStart}
         onTouchStart={mode === 'brush' ? handleBrushStart : handleBoxStart}
       >
