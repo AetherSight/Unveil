@@ -18,6 +18,7 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
   const [popupRank, setPopupRank] = useState<number | null>(null); // 当前显示popup的装备rank
   const [failedAngles, setFailedAngles] = useState<Set<string>>(new Set()); // 记录加载失败的角度
   const [renderFiles, setRenderFiles] = useState<Array<{ fileName: string; angle: string }>>([]); // 渲染图文件列表
+  const [loadedIcons, setLoadedIcons] = useState<Set<string>>(new Set()); // 记录已加载的图标ID
 
   if (results.length === 0) {
     return null;
@@ -385,6 +386,8 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                 <div className="space-y-2">
                   {result.same_model_gears.map((gear) => {
                   const gearIconUrl = getIconUrl(gear.id);
+                  const iconKey = gear.id || '';
+                  const isLoading = gearIconUrl && !loadedIcons.has(iconKey);
                   return (
                     <div
                       key={gear.id}
@@ -392,15 +395,22 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                     >
                       {gearIconUrl ? (
                         <div className="relative w-12 h-12 flex-shrink-0">
+                          {isLoading && (
+                            <div className="absolute inset-0 bg-gray-200 rounded animate-pulse" />
+                          )}
                           <Image
                             src={gearIconUrl}
                             alt={gear.name}
                             fill
                             className="object-contain"
                             unoptimized
+                            onLoad={() => {
+                              setLoadedIcons(prev => new Set(prev).add(iconKey));
+                            }}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.style.display = 'none';
+                              setLoadedIcons(prev => new Set(prev).add(iconKey));
                             }}
                           />
                         </div>
