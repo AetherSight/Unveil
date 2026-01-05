@@ -19,6 +19,7 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
   const [failedAngles, setFailedAngles] = useState<Set<string>>(new Set()); // 记录加载失败的角度
   const [renderFiles, setRenderFiles] = useState<Array<{ fileName: string; angle: string }>>([]); // 渲染图文件列表
   const [loadedIcons, setLoadedIcons] = useState<Set<string>>(new Set()); // 记录已加载的图标ID
+  const [loadedRenders, setLoadedRenders] = useState<Set<string>>(new Set()); // 记录已加载的渲染图
 
   if (results.length === 0) {
     return null;
@@ -56,6 +57,7 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
   useEffect(() => {
     if (popupRank !== null) {
       setFailedAngles(new Set());
+      setLoadedRenders(new Set());
       const result = results.find(r => r.rank === popupRank);
       if (result) {
         const { name, id } = parseLabel(result.label);
@@ -312,30 +314,46 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                         renderFiles.map((file) => {
                           const imageKey = `${currentId}-${file.angle}`;
                           const hasFailed = failedAngles.has(imageKey);
+                          const isLoading = !hasFailed && !loadedRenders.has(imageKey);
                           return (
                             <div key={file.fileName} className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center">
                               {hasFailed ? (
                                 <span className="text-xs text-gray-400 font-light">文件不存在</span>
                               ) : (
-                                <Image
-                                  src={getRenderUrl(currentId, currentName, file.angle) || ''}
-                                  alt={`${currentName} 渲染图 ${file.angle}`}
-                                  fill
-                                  className="object-contain"
-                                  unoptimized
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    setFailedAngles(prev => new Set(prev).add(imageKey));
-                                  }}
-                                />
+                                <>
+                                  {isLoading && (
+                                    <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+                                  )}
+                                  <Image
+                                    src={getRenderUrl(currentId, currentName, file.angle) || ''}
+                                    alt={`${currentName} 渲染图 ${file.angle}`}
+                                    fill
+                                    className="object-contain"
+                                    unoptimized
+                                    onLoad={() => {
+                                      setLoadedRenders(prev => new Set(prev).add(imageKey));
+                                    }}
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      setFailedAngles(prev => new Set(prev).add(imageKey));
+                                      setLoadedRenders(prev => new Set(prev).add(imageKey));
+                                    }}
+                                  />
+                                </>
                               )}
                             </div>
                           );
                         })
                       ) : (
-                        // 加载中或没有文件
-                        <div className="text-xs text-gray-400 font-light">加载中...</div>
+                        // 加载中骨架图
+                        <div className="flex justify-center gap-2">
+                          {[1, 2, 3].map((index) => (
+                            <div key={index} className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                              <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}
