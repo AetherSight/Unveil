@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getNextRevelationUrl } from '@/lib/revelation-client';
+import { logRequest, logError } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  const start = Date.now();
+  const url = request.nextUrl.pathname + request.nextUrl.search;
+  const ip = request.headers.get('x-real-ip') || 
+             request.headers.get('x-forwarded-for')?.split(',')[0] || 
+             undefined;
+  
   try {
     const formData = await request.formData();
     const topK = request.nextUrl.searchParams.get('top_k') || '5';
@@ -41,6 +48,8 @@ export async function POST(request: NextRequest) {
         userMessage = '后端模型正在加载中，请稍候片刻后重试。如果问题持续，请检查后端服务日志。';
       }
       
+      const duration = Date.now() - start;
+      logRequest('POST', url, response.status, duration, ip);
       return NextResponse.json(
         { message: userMessage },
         { status: response.status }
@@ -48,9 +57,12 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
+    const duration = Date.now() - start;
+    logRequest('POST', url, 200, duration, ip);
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Predict API error:', error);
+    const duration = Date.now() - start;
+    logError('POST', url, error, ip);
     let errorMessage = '识别失败';
     
     if (error instanceof TypeError && error.message.includes('fetch')) {
