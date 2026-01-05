@@ -13,6 +13,7 @@ import ImageWithCrop from '@/components/ImageWithCrop';
 import PredictionResults from '@/components/PredictionResults';
 import PredictionResultsSkeleton from '@/components/PredictionResultsSkeleton';
 import SegmentResults, { partLabels } from '@/components/SegmentResults';
+import SegmentResultsSkeleton from '@/components/SegmentResultsSkeleton';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { predictEquipment, segmentImage, removeBackground, searchEquipment } from '@/lib/api';
 import type { PredictionResult, SegmentResponse } from '@/lib/types';
@@ -611,12 +612,16 @@ export default function Home() {
                 <button
                   onClick={handleSegment}
                   disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-light hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
+                    segmentState === 'segmenting'
+                      ? 'bg-blue-100 text-blue-600 cursor-wait'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
                 >
                   {segmentState === 'segmenting' ? (
                     <>
                       <LoadingSpinner size="sm" />
-                      <span>分割中...</span>
+                      <span className="animate-pulse">分割中...</span>
                     </>
                   ) : (
                     '自动分割'
@@ -667,10 +672,7 @@ export default function Home() {
                   <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
                     <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
                     {segmentState === 'segmenting' ? (
-                      <div className="flex items-center justify-center py-12">
-                        <LoadingSpinner size="sm" />
-                        <span className="ml-3 text-sm text-gray-400 font-light">分割中...</span>
-                      </div>
+                      <SegmentResultsSkeleton />
                     ) : segmentResults ? (
                       <SegmentResults 
                         results={segmentResults} 
