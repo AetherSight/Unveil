@@ -10,9 +10,9 @@ interface SegmentResultsProps {
 
 export const partLabels: Record<keyof SegmentResponse, string> = {
   head: '头部',
-  upper: '上身',
-  upper_1: '上身变体1',
-  upper_2: '上身变体2',
+  upper: '上身1',
+  upper_1: '上身2',
+  upper_2: '上身3',
   lower: '下身',
   shoes: '鞋子',
   hands: '手部',
