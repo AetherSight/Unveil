@@ -10,7 +10,6 @@ export function middleware(request: NextRequest) {
   // 获取客户端 IP
   const ip = request.headers.get('x-real-ip') || 
              request.headers.get('x-forwarded-for')?.split(',')[0] || 
-             request.ip || 
              'unknown';
   
   // 创建响应
