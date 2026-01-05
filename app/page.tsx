@@ -262,8 +262,9 @@ export default function Home() {
   const handleSegmentPartClick = useCallback(async (part: keyof SegmentResponse, base64: string) => {
     if (!segmentResults || !base64) return;
 
-    // 目前只支持身体部位识别
-    if (part !== 'upper') {
+    // 目前只支持身体部位识别（包括变体）
+    const enabledParts: (keyof SegmentResponse)[] = ['upper', 'upper_1', 'upper_2'];
+    if (!enabledParts.includes(part)) {
       setError('目前仅支持识别身体部位，其他部位暂不支持');
       return;
     }
