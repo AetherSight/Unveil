@@ -32,7 +32,6 @@ export default function Home() {
   const [boxThreshold, setBoxThreshold] = useState(0.3);
   const [textThreshold, setTextThreshold] = useState(0.25);
   const [displayCount, setDisplayCount] = useState(5);
-  const [isClient, setIsClient] = useState(false);
   const [selectedPart, setSelectedPart] = useState<'head' | 'upper' | 'lower' | 'shoes' | 'hands' | null>(null);
   const [brushMaskFile, setBrushMaskFile] = useState<File | null>(null);
   const [segmentResults, setSegmentResults] = useState<SegmentResponse | null>(null);
@@ -53,7 +52,6 @@ export default function Home() {
   }>({ imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null });
 
   useEffect(() => {
-    setIsClient(true);
     const savedBoxThreshold = localStorage.getItem(STORAGE_KEYS.boxThreshold);
     const savedTextThreshold = localStorage.getItem(STORAGE_KEYS.textThreshold);
     const savedTopK = localStorage.getItem(STORAGE_KEYS.topK);
@@ -556,6 +554,7 @@ export default function Home() {
                     onChange={(e) => handleSearchInputChange(e.target.value)}
                     placeholder="搜索装备名称..."
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    suppressHydrationWarning
                   />
                   {searchState === 'searching' && (
                     <LoadingSpinner size="sm" />
