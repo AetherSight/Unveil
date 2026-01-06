@@ -481,6 +481,30 @@ export default function Home() {
               </div>
             ) : null}
             
+            {/* 自动分割按钮 - 显示在使用说明上方 */}
+            {imagePreview && (
+              <div className="flex gap-4">
+                <button
+                  onClick={handleSegment}
+                  disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
+                    segmentState === 'segmenting'
+                      ? 'bg-blue-100 text-blue-600 cursor-wait'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  {segmentState === 'segmenting' ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      <span className="animate-pulse">分割中...</span>
+                    </>
+                  ) : (
+                    '自动分割'
+                  )}
+                </button>
+              </div>
+            )}
+            
             {/* 使用说明和显示结果数量 - 始终显示 */}
             <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
               <div className="space-y-2 pb-3 border-b border-gray-200">
@@ -516,30 +540,6 @@ export default function Home() {
                 />
               </div>
             </div>
-            
-            {/* 自动分割按钮 - 显示在使用说明下方 */}
-            {imagePreview && (
-              <div className="flex gap-4">
-                <button
-                  onClick={handleSegment}
-                  disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
-                    segmentState === 'segmenting'
-                      ? 'bg-blue-100 text-blue-600 cursor-wait'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  {segmentState === 'segmenting' ? (
-                    <>
-                      <LoadingSpinner size="sm" />
-                      <span className="animate-pulse">分割中...</span>
-                    </>
-                  ) : (
-                    '自动分割'
-                  )}
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="flex flex-col space-y-4">
