@@ -4,6 +4,8 @@ export interface SegmentResponse {
   upper?: string; // base64 encoded image
   upper_1?: string; // upper variant 1
   upper_2?: string; // upper variant 2
+  upper_3?: string; // upper variant 3
+  upper_4?: string; // upper variant 4
   lower?: string;
   shoes?: string;
   head?: string;
