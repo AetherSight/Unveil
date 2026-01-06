@@ -14,6 +14,7 @@ interface PredictionResultsProps {
 export default function PredictionResults({ results, croppedImageFile, isSearchResult = false }: PredictionResultsProps) {
   const [selectedRank, setSelectedRank] = useState<number | string | null>(null);
   const [hoveredRank, setHoveredRank] = useState<number | null>(null);
+  const [hoveredSameModelRank, setHoveredSameModelRank] = useState<number | null>(null); // hover同模装备提示的rank
   const [feedbackStatus, setFeedbackStatus] = useState<Record<number | string, 'sending' | 'success'>>({});
   const [popupRank, setPopupRank] = useState<number | null>(null); // 当前显示popup的装备rank
   const [failedAngles, setFailedAngles] = useState<Set<string>>(new Set()); // 记录加载失败的角度
@@ -193,7 +194,85 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                     {name}
                   </button>
                   {id && (
-                    <span className="text-xs text-gray-400 font-light">ID: {id}</span>
+                    <div className="relative">
+                      <span 
+                        className="text-xs text-gray-400 font-light cursor-pointer hover:text-gray-600 transition-colors"
+                        onMouseEnter={() => {
+                          if (result.same_model_gears && result.same_model_gears.length > 0) {
+                            setHoveredSameModelRank(result.rank);
+                          }
+                        }}
+                        onMouseLeave={() => setHoveredSameModelRank(null)}
+                      >
+                        ID: {id}
+                        {result.same_model_gears && result.same_model_gears.length > 0 && (
+                          <> · {result.same_model_gears.length} 个同模装备</>
+                        )}
+                      </span>
+                      {/* Hover popup for same model gears */}
+                      {hoveredSameModelRank === result.rank && result.same_model_gears && result.same_model_gears.length > 0 && (
+                        <div 
+                          className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[200px]"
+                          onMouseEnter={() => setHoveredSameModelRank(result.rank)}
+                          onMouseLeave={() => setHoveredSameModelRank(null)}
+                        >
+                          <div className="absolute -top-1 left-4 w-2 h-2 bg-white border-l border-t border-gray-200 transform rotate-45"></div>
+                          <div className="space-y-1">
+                            {result.same_model_gears.map((gear) => {
+                              const gearIconUrl = getIconUrl(gear.id);
+                              const iconKey = gear.id || '';
+                              const isLoading = gearIconUrl && !loadedIcons.has(iconKey);
+                              return (
+                                <div
+                                  key={gear.id}
+                                  className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // 找到对应的result并打开popup
+                                    const targetResult = results.find(r => {
+                                      const { id: rId } = parseLabel(r.label);
+                                      return rId === gear.id;
+                                    });
+                                    if (targetResult) {
+                                      setPopupRank(targetResult.rank);
+                                      setHoveredSameModelRank(null);
+                                    }
+                                  }}
+                                >
+                                  {gearIconUrl ? (
+                                    <div className="relative w-8 h-8 flex-shrink-0">
+                                      {isLoading && (
+                                        <div className="absolute inset-0 bg-gray-200 rounded animate-pulse" />
+                                      )}
+                                      <Image
+                                        src={gearIconUrl}
+                                        alt={gear.name}
+                                        fill
+                                        className="object-contain"
+                                        unoptimized
+                                        onLoad={() => {
+                                          setLoadedIcons(prev => new Set(prev).add(iconKey));
+                                        }}
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.style.display = 'none';
+                                          setLoadedIcons(prev => new Set(prev).add(iconKey));
+                                        }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 text-gray-500 text-xs font-light">
+                                      ?
+                                    </div>
+                                  )}
+                                  <span className="text-sm text-gray-700 font-light">{gear.name}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
