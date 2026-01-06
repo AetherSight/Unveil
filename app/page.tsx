@@ -261,7 +261,7 @@ export default function Home() {
     if (!segmentResults || !base64) return;
 
     // 目前只支持身体部位识别（包括变体）
-    const enabledParts: (keyof SegmentResponse)[] = ['upper', 'upper_1', 'upper_2'];
+    const enabledParts: (keyof SegmentResponse)[] = ['upper', 'upper_1', 'upper_2', 'upper_3', 'upper_4'];
     if (!enabledParts.includes(part)) {
       setError('目前仅支持识别身体部位，其他部位暂不支持');
       return;
