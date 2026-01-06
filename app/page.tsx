@@ -419,9 +419,11 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-light text-gray-800 mb-4">
-            AetherSight
-            <sup className="ml-1 text-xs font-normal text-gray-500 align-super">Beta</sup>
+          <h1 className="text-3xl font-light text-gray-800 mb-4 relative inline-block">
+            <span className="relative">
+              AetherSight
+              <sup className="absolute -top-1 left-full ml-1 text-xs font-normal text-gray-500 align-super">Beta</sup>
+            </span>
           </h1>
           <div className="flex items-center justify-center gap-2">
             <div className="w-48 h-px bg-gradient-to-r from-transparent via-gray-300 to-gray-300"></div>
