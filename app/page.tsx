@@ -452,7 +452,7 @@ export default function Home() {
                 <img
                   src={imagePreview}
                   alt="预览图片"
-                  className="w-full h-auto max-h-[600px] object-contain rounded-lg border-2 border-gray-300 bg-gray-50"
+                  className="w-full h-auto max-h-[500px] object-contain rounded-lg border-2 border-gray-300 bg-gray-50"
                 />
                 <div className="absolute top-2 right-2 z-20">
                   <button
