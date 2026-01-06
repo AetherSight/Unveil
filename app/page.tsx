@@ -504,14 +504,14 @@ export default function Home() {
                 <input
                   type="range"
                   min="1"
-                  max="10"
+                  max="20"
                   step="1"
                   value={displayCount}
                   onChange={(e) => setDisplayCount(parseInt(e.target.value))}
                   disabled={processingState === 'predicting'}
                   className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 9) * 100}%, #e5e7eb ${((displayCount - 1) / 9) * 100}%, #e5e7eb 100%)`
+                    background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 19) * 100}%, #e5e7eb ${((displayCount - 1) / 19) * 100}%, #e5e7eb 100%)`
                   }}
                 />
               </div>
@@ -615,9 +615,7 @@ export default function Home() {
                       <p className="text-sm text-gray-400 font-light">
                         {segmentResults 
                           ? '点击上方结果中的部位进行识别' 
-                          : brushMaskFile 
-                            ? '点击部位按钮进行识别' 
-                            : '请先涂抹选择图片区域或进行自动分割'}
+                          : '请先进行自动分割'}
                       </p>
                     </div>
                   )}
