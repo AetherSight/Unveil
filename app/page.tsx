@@ -528,14 +528,14 @@ export default function Home() {
                 <input
                   type="range"
                   min="1"
-                  max="20"
+                  max="10"
                   step="1"
                   value={displayCount}
                   onChange={(e) => setDisplayCount(parseInt(e.target.value))}
                   disabled={processingState === 'predicting'}
                   className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 19) * 100}%, #e5e7eb ${((displayCount - 1) / 19) * 100}%, #e5e7eb 100%)`
+                    background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 9) * 100}%, #e5e7eb ${((displayCount - 1) / 9) * 100}%, #e5e7eb 100%)`
                   }}
                 />
               </div>
