@@ -19,7 +19,7 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
   const [imageNaturalSize, setImageNaturalSize] = useState({ width: 0, height: 0 });
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [imageDisplaySize, setImageDisplaySize] = useState({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
-  const [mode, setMode] = useState<'brush' | 'box'>('brush');
+  const [mode, setMode] = useState<'brush' | 'box'>('box');
   const [cropBox, setCropBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [brushPoints, setBrushPoints] = useState<Array<{ x: number; y: number } | null>>([]);
@@ -1000,8 +1000,8 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
         ref={containerRef}
         className={`relative w-full h-full select-none ${mode === 'box' ? 'cursor-crosshair' : ''}`}
         style={{ touchAction: 'none' }}
-        onMouseDown={mode === 'brush' ? handleBrushStart : handleBoxStart}
-        onTouchStart={mode === 'brush' ? handleBrushStart : handleBoxStart}
+        onMouseDown={handleBoxStart}
+        onTouchStart={handleBoxStart}
       >
         <img
           ref={imageRef}
@@ -1018,47 +1018,7 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
         />
       </div>
       
-      {/* 左下角模式切换按钮 */}
-      <div className="absolute bottom-2 left-2 flex gap-2 z-30">
-        <button
-          onClick={() => setMode('brush')}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
-            mode === 'brush'
-              ? 'bg-blue-500 text-white shadow-md'
-              : 'bg-white/90 text-gray-600 hover:bg-white border border-gray-200'
-          }`}
-          title="涂抹模式"
-        >
-            <svg className="w-5 h-5" viewBox="0 -2 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <g stroke="none" strokeWidth="1" fillRule="evenodd" transform="translate(-99.000000, -154.000000)">
-                <g fill="currentColor">
-                  <path d="M128.735,157.585 L116.047,170.112 L114.65,168.733 L127.339,156.206 C127.725,155.825 128.35,155.825 128.735,156.206 C129.121,156.587 129.121,157.204 128.735,157.585 L128.735,157.585 Z M112.556,173.56 C112.427,173.433 111.159,172.181 111.159,172.181 L113.254,170.112 L114.65,171.491 L112.556,173.56 L112.556,173.56 Z M110.461,178.385 C109.477,179.298 105.08,181.333 102.491,179.36 C102.491,179.36 103.392,178.657 104.074,177.246 C105.703,172.919 109.763,173.56 109.763,173.56 L111.159,174.938 C111.173,174.952 112.202,176.771 110.461,178.385 L110.461,178.385 Z M130.132,154.827 C128.975,153.685 127.099,153.685 125.942,154.827 L108.764,171.788 C106.661,171.74 103.748,172.485 102.491,176.603 C101.53,178.781 99,178.671 99,178.671 C104.253,184.498 110.444,181.196 111.857,179.764 C113.1,178.506 113.279,176.966 113.146,175.734 L130.132,158.964 C131.289,157.821 131.289,155.969 130.132,154.827 L130.132,154.827 Z" />
-                </g>
-              </g>
-            </svg>
-        </button>
-        <button
-          onClick={() => setMode('box')}
-          className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
-            mode === 'box'
-              ? 'bg-blue-500 text-white shadow-md'
-              : 'bg-white/90 text-gray-600 hover:bg-white border border-gray-200'
-          }`}
-          title="框选模式"
-        >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <g clipPath="url(#clip0_15_434)">
-                <path d="M5 1V5M5 5H1M5 5V18C5 18.5523 5.44772 19 6 19H16" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}/>
-                <path d="M19 23L19 19M19 19L23 19M19 19L19 6C19 5.44772 18.5523 5 18 5L8 5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}/>
-              </g>
-              <defs>
-                <clipPath id="clip0_15_434">
-                  <rect width="24" height="24" fill="white"/>
-                </clipPath>
-              </defs>
-            </svg>
-        </button>
-      </div>
+      {/* 左下角模式切换按钮（已隐藏，默认使用框选模式） */}
     </div>
   );
 }

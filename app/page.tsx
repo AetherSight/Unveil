@@ -38,8 +38,8 @@ export default function Home() {
   const [segmentState, setSegmentState] = useState<'idle' | 'segmenting' | 'complete' | 'error'>('idle');
   const [resultView, setResultView] = useState<ResultView>('prediction');
   const [selectedSegmentPart, setSelectedSegmentPart] = useState<keyof SegmentResponse | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null); // base64 string or object URL for preview (box: removed bg, brush: original mask)
-  const [selectionMode, setSelectionMode] = useState<'brush' | 'box'>('brush'); // 当前选择模式，默认涂抹
+  const [previewImage, setPreviewImage] = useState<string | null>(null); // base64 string或预览用base64
+  const [selectionMode, setSelectionMode] = useState<'brush' | 'box'>('box'); // 当前选择模式，默认框选
   const [searchQuery, setSearchQuery] = useState<string>(''); // 搜索关键词
   const [searchResults, setSearchResults] = useState<PredictionResult[]>([]); // 搜索结果
   const [searchState, setSearchState] = useState<'idle' | 'searching' | 'complete' | 'error'>('idle'); // 搜索状态
@@ -203,23 +203,47 @@ export default function Home() {
   }, []);
 
   // 包装 setBrushMaskFile，当开始新的涂抹操作时清除分割结果
-  const handleBrushMaskChange = useCallback((file: File | null) => {
+  // 框选完成后回调：自动调用去除背景，并将结果放入上身1容器
+  const handleBrushMaskChange = useCallback(async (file: File | null) => {
     setBrushMaskFile(file);
-    // 当开始新的涂抹操作时（file 不为 null），清除分割结果和去除背景后的图片
-    if (file !== null && segmentResults) {
+
+    if (!file) {
+      // 清空选择和分割结果
       setSegmentResults(null);
       setSelectedSegmentPart(null);
       setSegmentState('idle');
-    }
-    // 清除预览图片和选中的部位
-    if (file === null) {
       setPreviewImage(null);
       setSelectedPart(null);
-    } else {
-      // 当有新的选择时，清除之前选中的部位，引导用户重新选择
-      setSelectedPart(null);
+      return;
     }
-  }, [segmentResults]);
+
+    try {
+      setError(null);
+      setSegmentState('segmenting');
+      setSelectedSegmentPart(null);
+
+      // 调用去除背景接口，返回 base64
+      const removedBgBase64 = await removeBackground(file);
+
+      // 将结果放入上身1（upper）容器，其他上身槽位只显示占位图标
+      setSegmentResults({
+        upper: removedBgBase64,
+        upper_1: undefined,
+        upper_2: undefined,
+        upper_3: undefined,
+        upper_4: undefined,
+        lower: undefined,
+        shoes: undefined,
+        head: undefined,
+        hands: undefined,
+      });
+      setSegmentState('complete');
+      setResultView('segment');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '去除背景失败');
+      setSegmentState('error');
+    }
+  }, []);
 
   const handleSegment = useCallback(async () => {
     if (!selectedImage || !imagePreview) {
@@ -451,16 +475,17 @@ export default function Home() {
             
             {imagePreview ? (
               <div className="relative">
-                <img
-                  src={imagePreview}
-                  alt="预览图片"
-                  className="w-full h-auto max-h-[500px] object-contain rounded-lg border-2 border-gray-300 bg-gray-50"
+                <ImageWithCrop
+                  imageSrc={imagePreview}
+                  onCropAreaChange={handleCropAreaChange}
+                  onBrushMaskChange={handleBrushMaskChange}
+                  cropArea={cropArea}
                 />
                 <div className="absolute top-2 right-2 z-20">
                   <button
                     onClick={handleReset}
                     disabled={processingState === 'predicting'}
-                    className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg-white border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg白 border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     title="删除图片"
                   >
                     <svg
@@ -631,32 +656,6 @@ export default function Home() {
             )}
           </div>
         </div>
-
-        {/* 去除背景后的图片预览 - 右下角浮窗 */}
-        {previewImage && (
-          <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-xs">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-light text-gray-700">预览</h3>
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
-                title="关闭"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex justify-center">
-              <img
-                src={`data:image/png;base64,${previewImage}`}
-                alt={selectionMode === 'box' ? '去除背景后的图片' : '识别预览图片'}
-                className="max-w-full h-auto border border-gray-200 rounded"
-                style={{ maxHeight: '200px' }}
-              />
-            </div>
-          </div>
-        )}
 
         <footer className="mt-16 pt-8 pb-8 border-t border-gray-200">
           <div className="flex flex-col items-center gap-4 text-sm text-gray-500 font-light">
