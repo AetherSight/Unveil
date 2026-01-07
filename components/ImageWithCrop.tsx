@@ -981,21 +981,18 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
       document.addEventListener('mouseup', handleEnd);
       document.addEventListener('touchmove', handleMove, { passive: false });
       document.addEventListener('touchend', handleEnd, { passive: false });
-      // 阻止页面滚动
-      document.body.style.overflow = 'hidden';
       return () => {
         document.removeEventListener('mousemove', handleMove);
         document.removeEventListener('mouseup', handleEnd);
         document.removeEventListener('touchmove', handleMove);
         document.removeEventListener('touchend', handleEnd);
-        document.body.style.overflow = '';
       };
     }
   }, [isDragging, mode, handleBoxMove, handleBoxEnd]);
 
 
   return (
-    <div className="relative w-full aspect-video bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+    <div className="relative w-full max-h-[500px] bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
       <div
         ref={containerRef}
         className={`relative w-full h-full select-none ${mode === 'box' ? 'cursor-crosshair' : ''}`}
