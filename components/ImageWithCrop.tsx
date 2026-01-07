@@ -25,7 +25,8 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
   const [brushPoints, setBrushPoints] = useState<Array<{ x: number; y: number } | null>>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [dragType, setDragType] = useState<'move' | 'resize' | 'create' | null>(null);
+  const [dragType, setDragType] = useState<'move' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | 'create' | null>(null);
+  const [hoverResizeType, setHoverResizeType] = useState<'move' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null>(null);
   const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const extractMaskTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -149,41 +150,38 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
         ctx.fillRect(cropBox.x, cropBox.y, cropBox.width, cropBox.height);
         ctx.strokeRect(cropBox.x, cropBox.y, cropBox.width, cropBox.height);
         
-        // 绘制调整手柄（白色外圈，灰色内圈）
+        // 绘制调整手柄（白色外圈，灰色内圈）- 四角 + 四边中点
         const handleSize = 10;
         const handleBorder = 2;
+        const centers = [
+          // 四角
+          { x: cropBox.x, y: cropBox.y },
+          { x: cropBox.x + cropBox.width, y: cropBox.y },
+          { x: cropBox.x, y: cropBox.y + cropBox.height },
+          { x: cropBox.x + cropBox.width, y: cropBox.y + cropBox.height },
+          // 边中点
+          { x: cropBox.x + cropBox.width / 2, y: cropBox.y },
+          { x: cropBox.x + cropBox.width / 2, y: cropBox.y + cropBox.height },
+          { x: cropBox.x, y: cropBox.y + cropBox.height / 2 },
+          { x: cropBox.x + cropBox.width, y: cropBox.y + cropBox.height / 2 },
+        ];
+
         // 外圈（白色）
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(cropBox.x - handleSize / 2, cropBox.y - handleSize / 2, handleSize, handleSize);
-        ctx.fillRect(cropBox.x + cropBox.width - handleSize / 2, cropBox.y - handleSize / 2, handleSize, handleSize);
-        ctx.fillRect(cropBox.x - handleSize / 2, cropBox.y + cropBox.height - handleSize / 2, handleSize, handleSize);
-        ctx.fillRect(cropBox.x + cropBox.width - handleSize / 2, cropBox.y + cropBox.height - handleSize / 2, handleSize, handleSize);
+        centers.forEach((c) => {
+          ctx.fillRect(c.x - handleSize / 2, c.y - handleSize / 2, handleSize, handleSize);
+        });
+
         // 内圈（灰色）
         ctx.fillStyle = '#6b7280';
-        ctx.fillRect(
-          cropBox.x - handleSize / 2 + handleBorder,
-          cropBox.y - handleSize / 2 + handleBorder,
-          handleSize - handleBorder * 2,
-          handleSize - handleBorder * 2
-        );
-        ctx.fillRect(
-          cropBox.x + cropBox.width - handleSize / 2 + handleBorder,
-          cropBox.y - handleSize / 2 + handleBorder,
-          handleSize - handleBorder * 2,
-          handleSize - handleBorder * 2
-        );
-        ctx.fillRect(
-          cropBox.x - handleSize / 2 + handleBorder,
-          cropBox.y + cropBox.height - handleSize / 2 + handleBorder,
-          handleSize - handleBorder * 2,
-          handleSize - handleBorder * 2
-        );
-        ctx.fillRect(
-          cropBox.x + cropBox.width - handleSize / 2 + handleBorder,
-          cropBox.y + cropBox.height - handleSize / 2 + handleBorder,
-          handleSize - handleBorder * 2,
-          handleSize - handleBorder * 2
-        );
+        centers.forEach((c) => {
+          ctx.fillRect(
+            c.x - handleSize / 2 + handleBorder,
+            c.y - handleSize / 2 + handleBorder,
+            handleSize - handleBorder * 2,
+            handleSize - handleBorder * 2
+          );
+        });
         return;
       }
 
@@ -787,8 +785,8 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
     }
   };
 
-  // 框选模式：获取调整类型
-  const getResizeType = (x: number, y: number): 'move' | 'resize' | 'create' | null => {
+  // 框选模式：获取调整类型（支持四角和边中点）
+  const getResizeType = (x: number, y: number): 'move' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | 'create' | null => {
     if (!cropBox) return 'create';
     
     const { x: boxX, y: boxY, width, height } = cropBox;
@@ -797,16 +795,24 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
     
     if (!isInBox) return 'create';
     
-    // 检查是否在调整手柄上
+    // 检查是否在调整手柄上（四角 + 四边中点）
     const isNearLeft = Math.abs(x - boxX) < handleSize;
     const isNearRight = Math.abs(x - (boxX + width)) < handleSize;
     const isNearTop = Math.abs(y - boxY) < handleSize;
     const isNearBottom = Math.abs(y - (boxY + height)) < handleSize;
     
-    if (isNearLeft || isNearRight || isNearTop || isNearBottom) {
-      return 'resize';
-    }
+    // 角
+    if (isNearLeft && isNearTop) return 'nw';
+    if (isNearRight && isNearTop) return 'ne';
+    if (isNearLeft && isNearBottom) return 'sw';
+    if (isNearRight && isNearBottom) return 'se';
+    // 边
+    if (isNearLeft) return 'w';
+    if (isNearRight) return 'e';
+    if (isNearTop) return 'n';
+    if (isNearBottom) return 's';
     
+    // 其余在框内区域为拖动
     return 'move';
   };
 
@@ -818,6 +824,20 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
     const pos = getPosFromEvent(e);
     
     const resizeType = getResizeType(pos.x, pos.y);
+
+    // 点击框外：清除选择框
+    if (cropBox && resizeType === 'create') {
+      setCropBox(null);
+      setSelectionStart(null);
+      setIsDragging(false);
+      setDragType(null);
+      onCropAreaChange(null);
+      if (onBrushMaskChange) {
+        onBrushMaskChange(null);
+      }
+      return;
+    }
+
     setDragType(resizeType);
     setIsDragging(true);
     setDragStart(pos);
@@ -880,18 +900,72 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
       
       setCropBox({ ...cropBox, x: newX, y: newY });
       setDragStart(pos);
-    } else if (dragType === 'resize' && cropBox) {
+    } else if (cropBox && dragType && dragType !== 'create' && dragType !== 'move') {
       const deltaX = pos.x - dragStart.x;
       const deltaY = pos.y - dragStart.y;
-      
-      // 简化：只从右下角调整
-      const newWidth = Math.max(20, Math.min(cropBox.width + deltaX, imageDisplaySize.offsetX + imageDisplaySize.width - cropBox.x));
-      const newHeight = Math.max(20, Math.min(cropBox.height + deltaY, imageDisplaySize.offsetY + imageDisplaySize.height - cropBox.y));
-      
-      setCropBox({ ...cropBox, width: newWidth, height: newHeight });
+      const minWidth = 20;
+      const minHeight = 20;
+
+      const minX = imageDisplaySize.offsetX;
+      const maxX = imageDisplaySize.offsetX + imageDisplaySize.width;
+      const minY = imageDisplaySize.offsetY;
+      const maxY = imageDisplaySize.offsetY + imageDisplaySize.height;
+
+      let { x, y, width, height } = cropBox;
+      const right = x + width;
+      const bottom = y + height;
+
+      // 右侧（e / ne / se）
+      if (dragType.includes('e')) {
+        const newRight = Math.min(Math.max(right + deltaX, x + minWidth), maxX);
+        width = newRight - x;
+      }
+
+      // 左侧（w / nw / sw）
+      if (dragType.includes('w')) {
+        const newLeft = Math.max(Math.min(x + deltaX, right - minWidth), minX);
+        width = right - newLeft;
+        x = newLeft;
+      }
+
+      // 底边（s / se / sw）
+      if (dragType.includes('s')) {
+        const newBottom = Math.min(Math.max(bottom + deltaY, y + minHeight), maxY);
+        height = newBottom - y;
+      }
+
+      // 顶边（n / ne / nw）
+      if (dragType.includes('n')) {
+        const newTop = Math.max(Math.min(y + deltaY, bottom - minHeight), minY);
+        height = bottom - newTop;
+        y = newTop;
+      }
+
+      setCropBox({ x, y, width, height });
       setDragStart(pos);
     }
   }, [isDragging, mode, dragType, cropBox, dragStart, selectionStart, imageDisplaySize]);
+
+  // 框选模式：根据鼠标位置更新 hover 光标
+  const handleBoxHoverMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (mode !== 'box' || isDragging) {
+      setHoverResizeType(null);
+      return;
+    }
+    if (!cropBox) {
+      setHoverResizeType(null);
+      return;
+    }
+
+    const pos = getPosFromEvent(e);
+    const type = getResizeType(pos.x, pos.y);
+
+    if (type === 'create') {
+      setHoverResizeType(null);
+    } else {
+      setHoverResizeType(type === 'move' ? 'move' : type);
+    }
+  };
 
   // 框选模式：提取选中区域的图片
   const extractBoxImage = useCallback(async () => {
@@ -991,14 +1065,44 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
   }, [isDragging, mode, handleBoxMove, handleBoxEnd]);
 
 
+  // 根据拖拽/hover 状态确定光标样式
+  const cursor = (() => {
+    if (mode !== 'box') return 'default';
+    const type = isDragging ? dragType : hoverResizeType;
+    switch (type) {
+      case 'move':
+        return 'move';
+      case 'n':
+        return 'n-resize';
+      case 's':
+        return 's-resize';
+      case 'e':
+        return 'e-resize';
+      case 'w':
+        return 'w-resize';
+      case 'ne':
+        return 'ne-resize';
+      case 'nw':
+        return 'nw-resize';
+      case 'se':
+        return 'se-resize';
+      case 'sw':
+        return 'sw-resize';
+      default:
+        return 'crosshair';
+    }
+  })();
+
   return (
     <div className="relative w-full h-[500px] bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
       <div
         ref={containerRef}
-        className={`relative w-full h-full select-none ${mode === 'box' ? 'cursor-crosshair' : ''}`}
-        style={{ touchAction: 'none' }}
+        className="relative w-full h-full select-none"
+        style={{ touchAction: 'none', cursor }}
         onMouseDown={handleBoxStart}
         onTouchStart={handleBoxStart}
+        onMouseMove={handleBoxHoverMove}
+        onMouseLeave={() => setHoverResizeType(null)}
       >
         <img
           ref={imageRef}
