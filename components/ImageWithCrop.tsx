@@ -992,7 +992,7 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
 
 
   return (
-    <div className="relative w-full max-h-[500px] bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+    <div className="relative w-full h-[500px] bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
       <div
         ref={containerRef}
         className={`relative w-full h-full select-none ${mode === 'box' ? 'cursor-crosshair' : ''}`}
