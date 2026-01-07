@@ -203,8 +203,8 @@ export default function Home() {
   }, []);
 
   // 包装 setBrushMaskFile，当开始新的涂抹操作时清除分割结果
-  // 框选完成后回调：自动调用去除背景，并将结果放入上身1容器
-  const handleBrushMaskChange = useCallback(async (file: File | null) => {
+  // 框选完成后只保存文件，不自动触发去除背景
+  const handleBrushMaskChange = useCallback((file: File | null) => {
     setBrushMaskFile(file);
 
     if (!file) {
@@ -214,34 +214,6 @@ export default function Home() {
       setSegmentState('idle');
       setPreviewImage(null);
       setSelectedPart(null);
-      return;
-    }
-
-    try {
-      setError(null);
-      setSegmentState('segmenting');
-      setSelectedSegmentPart(null);
-
-      // 调用去除背景接口，返回 base64
-      const removedBgBase64 = await removeBackground(file);
-
-      // 将结果放入上身1（upper）容器，其他上身槽位只显示占位图标
-      setSegmentResults({
-        upper: removedBgBase64,
-        upper_1: undefined,
-        upper_2: undefined,
-        upper_3: undefined,
-        upper_4: undefined,
-        lower: undefined,
-        shoes: undefined,
-        head: undefined,
-        hands: undefined,
-      });
-      setSegmentState('complete');
-      setResultView('segment');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '去除背景失败');
-      setSegmentState('error');
     }
   }, []);
 
@@ -258,15 +230,37 @@ export default function Home() {
     setCroppedImageFile(null);
 
     try {
-      const segmentData = await segmentImage(selectedImage, boxThreshold, textThreshold);
-      setSegmentResults(segmentData);
-      setSegmentState('complete');
-      setResultView('segment');
+      // 如果框选了，则移除背景并显示到上身1
+      if (brushMaskFile) {
+        // 调用去除背景接口，返回 base64
+        const removedBgBase64 = await removeBackground(brushMaskFile);
+
+        // 将结果放入上身1（upper）容器，其他上身槽位只显示占位图标
+        setSegmentResults({
+          upper: removedBgBase64,
+          upper_1: undefined,
+          upper_2: undefined,
+          upper_3: undefined,
+          upper_4: undefined,
+          lower: undefined,
+          shoes: undefined,
+          head: undefined,
+          hands: undefined,
+        });
+        setSegmentState('complete');
+        setResultView('segment');
+      } else {
+        // 如果没有框选，则自动分割部位
+        const segmentData = await segmentImage(selectedImage, boxThreshold, textThreshold);
+        setSegmentResults(segmentData);
+        setSegmentState('complete');
+        setResultView('segment');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '分割失败');
+      setError(err instanceof Error ? err.message : '处理失败');
       setSegmentState('error');
     }
-  }, [selectedImage, imagePreview, boxThreshold, textThreshold]);
+  }, [selectedImage, imagePreview, brushMaskFile, boxThreshold, textThreshold]);
 
   // 将 base64 转换为 File
   const base64ToFile = useCallback((base64: string, filename: string, mimeType: string = 'image/png'): File => {
@@ -506,7 +500,7 @@ export default function Home() {
               </div>
             ) : null}
             
-            {/* 自动分割按钮 - 显示在使用说明上方 */}
+            {/* 自动识别按钮 - 显示在使用说明上方 */}
             {imagePreview && (
               <div className="flex gap-4">
                 <button
@@ -521,10 +515,10 @@ export default function Home() {
                   {segmentState === 'segmenting' ? (
                     <>
                       <LoadingSpinner size="sm" />
-                      <span className="animate-pulse">分割中...</span>
+                      <span className="animate-pulse">处理中...</span>
                     </>
                   ) : (
-                    '自动分割'
+                    '自动识别'
                   )}
                 </button>
               </div>
@@ -535,7 +529,8 @@ export default function Home() {
               <div className="space-y-2 pb-3 border-b border-gray-200">
                 <h3 className="text-sm text-gray-700 font-medium mb-2">使用说明</h3>
                         <ol className="space-y-1.5 text-xs text-gray-600 font-light list-decimal list-inside">
-                          <li>点击下方的"自动分割"按钮可以自动识别并分割图片中的各个部位，识别结果将显示在右侧。</li>
+                          <li>点击下方的"自动识别"按钮可以自动识别并分割图片中的各个部位，识别结果将显示在右侧。</li>
+                          <li>如果已框选区域，点击"自动识别"将移除背景并显示到上身1；如果未框选，将自动分割所有部位。</li>
                           <li>如果识别结果中找到了匹配的装备，请点击右侧装备卡片上的图标进行反馈，这将帮助我们持续提升识别准确率。</li>
                           <li>相同模型的装备会合并显示，点击后可查看该模型下的所有装备变体。</li>
                           <li>本服务目前处于试运行阶段（Beta），识别准确率和服务可用性可能不稳定，请谨慎使用。</li>
