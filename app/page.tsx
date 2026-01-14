@@ -48,6 +48,10 @@ export default function Home() {
     imageKey: string | null;
     cropAreaKey: string | null;
   }>({ imageKey: null, cropAreaKey: null });
+  const lastSegmentRef = useRef<{
+    imageKey: string | null;
+    hasBrushMask: boolean;
+  }>({ imageKey: null, hasBrushMask: false });
 
   useEffect(() => {
     const savedTopK = localStorage.getItem(STORAGE_KEYS.topK);
@@ -193,6 +197,7 @@ export default function Home() {
     setSelectionMode('brush'); // Reset to default brush mode
     setSelectedPart(null); // 清除选中的部位
     lastProcessedRef.current = { imageKey: null, cropAreaKey: null };
+    lastSegmentRef.current = { imageKey: null, hasBrushMask: false };
   }, []);
 
   const handleClearSelection = useCallback(() => {
@@ -207,6 +212,21 @@ export default function Home() {
   const handleSegment = useCallback(async () => {
     if (!selectedImage || !imagePreview) {
       setError('请先上传图片');
+      return;
+    }
+
+    // 检查图片是否变化且是否有框选
+    const imageKey = `${selectedImage.name}-${selectedImage.size}-${selectedImage.lastModified}`;
+    const hasBrushMask = brushMaskFile !== null;
+    
+    // 如果图片未变化、没有框选、且已有分割结果，则不重复识别
+    if (
+      lastSegmentRef.current.imageKey === imageKey &&
+      !hasBrushMask &&
+      !lastSegmentRef.current.hasBrushMask &&
+      segmentResults !== null &&
+      segmentState === 'complete'
+    ) {
       return;
     }
 
@@ -239,18 +259,22 @@ export default function Home() {
         });
         setSegmentState('complete');
         setResultView('segment');
+        // 记录本次处理状态
+        lastSegmentRef.current = { imageKey, hasBrushMask: true };
       } else {
         // 如果没有框选，则自动分割部位
       const segmentData = await segmentImage(selectedImage);
       setSegmentResults(segmentData);
       setSegmentState('complete');
       setResultView('segment');
+      // 记录本次处理状态
+      lastSegmentRef.current = { imageKey, hasBrushMask: false };
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '处理失败');
       setSegmentState('error');
     }
-  }, [selectedImage, imagePreview, brushMaskFile]);
+  }, [selectedImage, imagePreview, brushMaskFile, segmentResults, segmentState]);
 
   // 将 base64 转换为 File
   const base64ToFile = useCallback((base64: string, filename: string, mimeType: string = 'image/png'): File => {
