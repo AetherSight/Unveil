@@ -3,8 +3,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 
 const STORAGE_KEYS = {
-  boxThreshold: 'unveil_box_threshold',
-  textThreshold: 'unveil_text_threshold',
   topK: 'unveil_top_k',
   patchWeight: 'unveil_patch_weight',
   patchOnly: 'unveil_patch_only',
@@ -31,8 +29,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [cropArea, setCropArea] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [croppedImageFile, setCroppedImageFile] = useState<File | null>(null);
-  const [boxThreshold, setBoxThreshold] = useState(0.3);
-  const [textThreshold, setTextThreshold] = useState(0.25);
   const [displayCount, setDisplayCount] = useState(5);
   const [patchWeight, setPatchWeight] = useState<number>(0.3);
   const [patchOnly, setPatchOnly] = useState<boolean | undefined>(undefined);
@@ -51,23 +47,13 @@ export default function Home() {
   const lastProcessedRef = useRef<{
     imageKey: string | null;
     cropAreaKey: string | null;
-    boxThreshold: number | null;
-    textThreshold: number | null;
-  }>({ imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null });
+  }>({ imageKey: null, cropAreaKey: null });
 
   useEffect(() => {
-    const savedBoxThreshold = localStorage.getItem(STORAGE_KEYS.boxThreshold);
-    const savedTextThreshold = localStorage.getItem(STORAGE_KEYS.textThreshold);
     const savedTopK = localStorage.getItem(STORAGE_KEYS.topK);
     const savedPatchWeight = localStorage.getItem(STORAGE_KEYS.patchWeight);
     const savedPatchOnly = localStorage.getItem(STORAGE_KEYS.patchOnly);
     
-    if (savedBoxThreshold) {
-      setBoxThreshold(parseFloat(savedBoxThreshold));
-    }
-    if (savedTextThreshold) {
-      setTextThreshold(parseFloat(savedTextThreshold));
-    }
     if (savedTopK) {
       setDisplayCount(parseInt(savedTopK));
     }
@@ -83,14 +69,6 @@ export default function Home() {
       setPatchOnly(savedPatchOnly === 'true');
     }
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.boxThreshold, boxThreshold.toString());
-  }, [boxThreshold]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.textThreshold, textThreshold.toString());
-  }, [textThreshold]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.topK, displayCount.toString());
@@ -172,8 +150,6 @@ export default function Home() {
     if (
       lastProcessedRef.current.imageKey === imageKey &&
       lastProcessedRef.current.cropAreaKey === processKey &&
-      lastProcessedRef.current.boxThreshold === boxThreshold &&
-      lastProcessedRef.current.textThreshold === textThreshold &&
       processingState === 'complete'
     ) {
       return;
@@ -194,14 +170,12 @@ export default function Home() {
       lastProcessedRef.current = {
         imageKey,
         cropAreaKey: processKey,
-        boxThreshold,
-        textThreshold,
       };
     } catch (err) {
       setError(err instanceof Error ? err.message : '处理失败');
       setProcessingState('error');
     }
-  }, [selectedImage, imagePreview, brushMaskFile, selectedPart, boxThreshold, textThreshold, processingState, patchWeight, patchOnly]);
+  }, [selectedImage, imagePreview, brushMaskFile, selectedPart, processingState, patchWeight, patchOnly]);
 
   const handleReset = useCallback(() => {
     setSelectedImage(null);
@@ -218,7 +192,7 @@ export default function Home() {
     setPreviewImage(null);
     setSelectionMode('brush'); // Reset to default brush mode
     setSelectedPart(null); // 清除选中的部位
-    lastProcessedRef.current = { imageKey: null, cropAreaKey: null, boxThreshold: null, textThreshold: null };
+    lastProcessedRef.current = { imageKey: null, cropAreaKey: null };
   }, []);
 
   const handleClearSelection = useCallback(() => {
@@ -281,7 +255,7 @@ export default function Home() {
         setResultView('segment');
       } else {
         // 如果没有框选，则自动分割部位
-      const segmentData = await segmentImage(selectedImage, boxThreshold, textThreshold);
+      const segmentData = await segmentImage(selectedImage);
       setSegmentResults(segmentData);
       setSegmentState('complete');
       setResultView('segment');
@@ -290,7 +264,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '处理失败');
       setSegmentState('error');
     }
-  }, [selectedImage, imagePreview, brushMaskFile, boxThreshold, textThreshold]);
+  }, [selectedImage, imagePreview, brushMaskFile]);
 
   // 将 base64 转换为 File
   const base64ToFile = useCallback((base64: string, filename: string, mimeType: string = 'image/png'): File => {
@@ -362,8 +336,6 @@ export default function Home() {
     if (
       lastProcessedRef.current.imageKey === imageKey &&
       lastProcessedRef.current.cropAreaKey === processKey &&
-      lastProcessedRef.current.boxThreshold === boxThreshold &&
-      lastProcessedRef.current.textThreshold === textThreshold &&
       processingState === 'complete' &&
       selectedPart === part
     ) {
@@ -423,14 +395,12 @@ export default function Home() {
       lastProcessedRef.current = {
         imageKey,
         cropAreaKey: processKey,
-        boxThreshold,
-        textThreshold,
       };
     } catch (err) {
       setError(err instanceof Error ? err.message : '识别失败');
       setProcessingState('error');
     }
-  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile, selectionMode, processingState, selectedPart, patchWeight, patchOnly]);
+  }, [brushMaskFile, selectedImage, cropArea, base64ToFile, selectionMode, processingState, selectedPart, patchWeight, patchOnly]);
 
   // 处理搜索输入变化，自动触发搜索
   const handleSearchInputChange = useCallback((value: string) => {
