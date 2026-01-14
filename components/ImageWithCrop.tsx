@@ -819,7 +819,9 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
   // 框选模式：开始拖拽
   const handleBoxStart = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
     if (mode !== 'box') return;
-    e.preventDefault();
+    if ('touches' in e) {
+      e.preventDefault();
+    }
     e.stopPropagation();
     const pos = getPosFromEvent(e);
     
@@ -1064,6 +1066,24 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
     }
   }, [isDragging, mode, handleBoxMove, handleBoxEnd]);
 
+  // 框选模式：设置触摸事件监听器（非 passive）
+  useEffect(() => {
+    if (mode !== 'box') return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleTouchStart = (e: Event) => {
+      const touchEvent = e as unknown as TouchEvent<HTMLDivElement>;
+      touchEvent.preventDefault();
+      handleBoxStart(touchEvent);
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+    };
+  }, [mode, handleBoxStart]);
+
 
   // 根据拖拽/hover 状态确定光标样式
   const cursor = (() => {
@@ -1100,7 +1120,6 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
         className="relative w-full h-full select-none"
         style={{ touchAction: 'none', cursor }}
         onMouseDown={handleBoxStart}
-        onTouchStart={handleBoxStart}
         onMouseMove={handleBoxHoverMove}
         onMouseLeave={() => setHoverResizeType(null)}
       >

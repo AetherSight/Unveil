@@ -194,27 +194,10 @@ export default function Home() {
   const handleClearSelection = useCallback(() => {
     setCropArea(null);
     setBrushMaskFile(null);
-    // 清除分割结果
-    setSegmentResults(null);
-    setSelectedSegmentPart(null);
-    setSegmentState('idle');
-    setPreviewImage(null);
-    setSelectedPart(null); // 清除选中的部位
   }, []);
 
-  // 包装 setBrushMaskFile，当开始新的涂抹操作时清除分割结果
-  // 框选完成后只保存文件，不自动触发去除背景
   const handleBrushMaskChange = useCallback((file: File | null) => {
     setBrushMaskFile(file);
-
-    if (!file) {
-      // 清空选择和分割结果
-      setSegmentResults(null);
-      setSelectedSegmentPart(null);
-      setSegmentState('idle');
-      setPreviewImage(null);
-      setSelectedPart(null);
-    }
   }, []);
 
   const handleSegment = useCallback(async () => {
@@ -226,8 +209,11 @@ export default function Home() {
     setError(null);
     setSegmentState('segmenting');
     setSelectedSegmentPart(null);
+    setSegmentResults(null);
     setPredictionResults([]);
     setCroppedImageFile(null);
+    setPreviewImage(null);
+    setSelectedPart(null);
 
     try {
       // 如果框选了，则移除背景并显示到上身1
