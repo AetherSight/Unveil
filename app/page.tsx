@@ -360,18 +360,31 @@ export default function Home() {
     setPreviewImage(null);
 
     try {
-      // 框选模式：先调用去除背景接口；涂抹模式：直接使用原图
+      // 框选/涂抹模式：都直接使用当前选区图片进行相似度/识别（不再对框选结果额外 remove background）
       if (selectionMode === 'box') {
-        // 框选模式：去除背景
-        const removedBgBase64 = await removeBackground(brushMaskFile);
-        setPreviewImage(removedBgBase64); // 预览显示去除背景后的图片
-        
-        // 将去除背景后的base64转换为File
-        const removedBgFile = base64ToFile(removedBgBase64, 'removed-bg.png');
-        setCroppedImageFile(removedBgFile);
+        // 框选模式：直接使用框选图片
+        // 将 File 转换为 base64 用于预览
+        const fileToBase64 = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              // 移除 data:image/png;base64, 前缀（如果有）
+              const base64 = result.includes(',') ? result.split(',')[1] : result;
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        };
+
+        const boxBase64 = await fileToBase64(brushMaskFile);
+        setPreviewImage(boxBase64); // 预览显示框选后的图片
+
+        setCroppedImageFile(brushMaskFile);
 
         // 调用识别接口
-        const predictData = await predictEquipment(removedBgFile, 10, patchWeight, patchOnly);
+        const predictData = await predictEquipment(brushMaskFile, 10, patchWeight, patchOnly);
         setPredictionResults(predictData.results);
         setProcessingState('complete');
       } else {
