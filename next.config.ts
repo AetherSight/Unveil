@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
     'localhost',
     '127.0.0.1',
     '192.168.13.*',
+    "ffxiv.ricterz.me",
+    "as.ffxiv.ai"
   ],
 };
 
