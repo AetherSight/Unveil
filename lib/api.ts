@@ -36,13 +36,23 @@ export async function segmentImage(
 
 export async function predictEquipment(
   imageFile: File,
-  topK: number = 5
+  topK: number = 5,
+  patchWeight?: number,
+  patchOnly?: boolean
 ): Promise<PredictResponse> {
   const formData = new FormData();
   formData.append('image', imageFile);
 
   const url = new URL('/api/predict', window.location.origin);
   url.searchParams.set('top_k', topK.toString());
+  
+  if (patchWeight !== undefined) {
+    url.searchParams.set('patch_weight', patchWeight.toString());
+  }
+  
+  if (patchOnly !== undefined) {
+    url.searchParams.set('patch_only', patchOnly.toString());
+  }
 
   try {
     const response = await fetch(url.toString(), {

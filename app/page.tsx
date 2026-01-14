@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
   boxThreshold: 'unveil_box_threshold',
   textThreshold: 'unveil_text_threshold',
   topK: 'unveil_top_k',
+  patchWeight: 'unveil_patch_weight',
+  patchOnly: 'unveil_patch_only',
 };
 import Image from 'next/image';
 import ImageUpload from '@/components/ImageUpload';
@@ -32,6 +34,8 @@ export default function Home() {
   const [boxThreshold, setBoxThreshold] = useState(0.3);
   const [textThreshold, setTextThreshold] = useState(0.25);
   const [displayCount, setDisplayCount] = useState(5);
+  const [patchWeight, setPatchWeight] = useState<number | undefined>(undefined);
+  const [patchOnly, setPatchOnly] = useState<boolean | undefined>(undefined);
   const [selectedPart, setSelectedPart] = useState<'head' | 'upper' | 'lower' | 'shoes' | 'hands' | null>(null);
   const [brushMaskFile, setBrushMaskFile] = useState<File | null>(null);
   const [segmentResults, setSegmentResults] = useState<SegmentResponse | null>(null);
@@ -55,6 +59,8 @@ export default function Home() {
     const savedBoxThreshold = localStorage.getItem(STORAGE_KEYS.boxThreshold);
     const savedTextThreshold = localStorage.getItem(STORAGE_KEYS.textThreshold);
     const savedTopK = localStorage.getItem(STORAGE_KEYS.topK);
+    const savedPatchWeight = localStorage.getItem(STORAGE_KEYS.patchWeight);
+    const savedPatchOnly = localStorage.getItem(STORAGE_KEYS.patchOnly);
     
     if (savedBoxThreshold) {
       setBoxThreshold(parseFloat(savedBoxThreshold));
@@ -64,6 +70,15 @@ export default function Home() {
     }
     if (savedTopK) {
       setDisplayCount(parseInt(savedTopK));
+    }
+    if (savedPatchWeight) {
+      const weight = parseFloat(savedPatchWeight);
+      if (!isNaN(weight) && weight >= 0 && weight <= 1) {
+        setPatchWeight(weight);
+      }
+    }
+    if (savedPatchOnly !== null) {
+      setPatchOnly(savedPatchOnly === 'true');
     }
   }, []);
 
@@ -78,6 +93,22 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.topK, displayCount.toString());
   }, [displayCount]);
+
+  useEffect(() => {
+    if (patchWeight !== undefined) {
+      localStorage.setItem(STORAGE_KEYS.patchWeight, patchWeight.toString());
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.patchWeight);
+    }
+  }, [patchWeight]);
+
+  useEffect(() => {
+    if (patchOnly !== undefined) {
+      localStorage.setItem(STORAGE_KEYS.patchOnly, patchOnly.toString());
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.patchOnly);
+    }
+  }, [patchOnly]);
 
   const handleImageSelect = useCallback((file: File) => {
     setSelectedImage(file);
@@ -157,7 +188,7 @@ export default function Home() {
       setCroppedImageFile(imageToProcess);
 
       // 直接调用预测接口
-      const predictData = await predictEquipment(imageToProcess, 10);
+      const predictData = await predictEquipment(imageToProcess, 10, patchWeight, patchOnly);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
       
@@ -171,7 +202,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '处理失败');
       setProcessingState('error');
     }
-  }, [selectedImage, imagePreview, brushMaskFile, selectedPart, boxThreshold, textThreshold, processingState]);
+  }, [selectedImage, imagePreview, brushMaskFile, selectedPart, boxThreshold, textThreshold, processingState, patchWeight, patchOnly]);
 
   const handleReset = useCallback(() => {
     setSelectedImage(null);
@@ -251,10 +282,10 @@ export default function Home() {
         setResultView('segment');
       } else {
         // 如果没有框选，则自动分割部位
-        const segmentData = await segmentImage(selectedImage, boxThreshold, textThreshold);
-        setSegmentResults(segmentData);
-        setSegmentState('complete');
-        setResultView('segment');
+      const segmentData = await segmentImage(selectedImage, boxThreshold, textThreshold);
+      setSegmentResults(segmentData);
+      setSegmentState('complete');
+      setResultView('segment');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '处理失败');
@@ -298,14 +329,14 @@ export default function Home() {
       setCroppedImageFile(partFile);
 
       // 直接调用识别接口
-      const predictData = await predictEquipment(partFile, 10);
+      const predictData = await predictEquipment(partFile, 10, patchWeight, patchOnly);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
     } catch (err) {
       setError(err instanceof Error ? err.message : '识别失败');
       setProcessingState('error');
     }
-  }, [segmentResults, base64ToFile]);
+  }, [segmentResults, base64ToFile, patchWeight, patchOnly]);
 
   // 处理点击部位按钮（涂抹或框选模式下）
   const handlePartButtonClick = useCallback(async (part: 'head' | 'upper' | 'lower' | 'shoes' | 'hands') => {
@@ -359,7 +390,7 @@ export default function Home() {
         setCroppedImageFile(removedBgFile);
 
         // 调用识别接口
-        const predictData = await predictEquipment(removedBgFile, 10);
+        const predictData = await predictEquipment(removedBgFile, 10, patchWeight, patchOnly);
         setPredictionResults(predictData.results);
         setProcessingState('complete');
       } else {
@@ -385,7 +416,7 @@ export default function Home() {
         setCroppedImageFile(brushMaskFile);
 
         // 调用识别接口
-        const predictData = await predictEquipment(brushMaskFile, 10);
+        const predictData = await predictEquipment(brushMaskFile, 10, patchWeight, patchOnly);
         setPredictionResults(predictData.results);
         setProcessingState('complete');
       }
@@ -400,7 +431,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '识别失败');
       setProcessingState('error');
     }
-  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile, selectionMode, processingState, selectedPart]);
+  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile, selectionMode, processingState, selectedPart, patchWeight, patchOnly]);
 
   // 处理搜索输入变化，自动触发搜索
   const handleSearchInputChange = useCallback((value: string) => {
@@ -468,59 +499,131 @@ export default function Home() {
             ) : null}
             
             {imagePreview ? (
-              <div className="relative">
-                <ImageWithCrop
-                  imageSrc={imagePreview}
-                  onCropAreaChange={handleCropAreaChange}
-                  onBrushMaskChange={handleBrushMaskChange}
-                  cropArea={cropArea}
-                />
+                <div className="relative">
+                  <ImageWithCrop
+                    imageSrc={imagePreview}
+                    onCropAreaChange={handleCropAreaChange}
+                    onBrushMaskChange={handleBrushMaskChange}
+                    cropArea={cropArea}
+                  />
                 <div className="absolute top-2 right-2 z-20">
-                  <button
-                    onClick={handleReset}
-                    disabled={processingState === 'predicting'}
+                    <button
+                      onClick={handleReset}
+                      disabled={processingState === 'predicting'}
                     className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg白 border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="删除图片"
-                  >
-                    <svg
-                      className="w-4 h-4 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                      title="删除图片"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-4 h-4 text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
                 </div>
               </div>
             ) : null}
-            
+                
             {/* 自动识别按钮 - 显示在使用说明上方 */}
             {imagePreview && (
-              <div className="flex gap-4">
-                <button
-                  onClick={handleSegment}
-                  disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
-                    segmentState === 'segmenting'
-                      ? 'bg-blue-100 text-blue-600 cursor-wait'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  {segmentState === 'segmenting' ? (
-                    <>
-                      <LoadingSpinner size="sm" />
-                      <span className="animate-pulse">处理中...</span>
-                    </>
-                  ) : (
-                    '自动识别'
-                  )}
-                </button>
+              <div className="space-y-3">
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleSegment}
+                    disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
+                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
+                      segmentState === 'segmenting'
+                        ? 'bg-blue-100 text-blue-600 cursor-wait'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
+                    }`}
+                  >
+                    {segmentState === 'segmenting' ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        <span className="animate-pulse">处理中...</span>
+                      </>
+                    ) : (
+                      '自动识别'
+                    )}
+                  </button>
+                </div>
+                
+                {/* 识别参数设置 */}
+                <div className="space-y-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-700 font-light">
+                        局部权重 (patch_weight)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 font-light">
+                          {patchWeight !== undefined ? patchWeight.toFixed(2) : '未设置'}
+                        </span>
+                        <button
+                          onClick={() => setPatchWeight(undefined)}
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                          title="清除设置"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={patchWeight !== undefined ? patchWeight : 0}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        setPatchWeight(value);
+                      }}
+                      disabled={processingState === 'predicting'}
+                      className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        background: patchWeight !== undefined
+                          ? `linear-gradient(to right, #9ca3af 0%, #9ca3af ${patchWeight * 100}%, #e5e7eb ${patchWeight * 100}%, #e5e7eb 100%)`
+                          : undefined
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm text-gray-700 font-light">
+                      仅使用 patch 特征 (patch_only)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={patchOnly === true}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setPatchOnly(true);
+                          } else {
+                            setPatchOnly(undefined);
+                          }
+                        }}
+                        disabled={processingState === 'predicting'}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      {patchOnly !== undefined && (
+                        <button
+                          onClick={() => setPatchOnly(undefined)}
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                          title="清除设置"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
             
