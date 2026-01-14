@@ -403,22 +403,22 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                                   {isLoading && (
                                     <div className="absolute inset-0 bg-gray-200 animate-pulse" />
                                   )}
-                                  <Image
-                                    src={getRenderUrl(currentId, currentName, file.angle) || ''}
-                                    alt={`${currentName} 渲染图 ${file.angle}`}
-                                    fill
-                                    className="object-contain"
-                                    unoptimized
+                                <Image
+                                  src={getRenderUrl(currentId, currentName, file.angle) || ''}
+                                  alt={`${currentName} 渲染图 ${file.angle}`}
+                                  fill
+                                  className="object-contain"
+                                  unoptimized
                                     onLoad={() => {
                                       setLoadedRenders(prev => new Set(prev).add(imageKey));
                                     }}
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.style.display = 'none';
-                                      setFailedAngles(prev => new Set(prev).add(imageKey));
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    setFailedAngles(prev => new Set(prev).add(imageKey));
                                       setLoadedRenders(prev => new Set(prev).add(imageKey));
-                                    }}
-                                  />
+                                  }}
+                                />
                                 </>
                               )}
                             </div>

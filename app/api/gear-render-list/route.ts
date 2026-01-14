@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       
       // 过滤出 PNG 文件
       const pngFiles = files.filter(file => file.toLowerCase().endsWith('.png'));
-
+      
       // 优先匹配特定模式：*_h0_p0.png, *_h45_p0.png, *_h225_p0.png, *_h255_p0.png
       const preferredPatterns = [
         /_h0_p0\.png$/i,

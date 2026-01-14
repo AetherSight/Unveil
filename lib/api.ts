@@ -37,7 +37,7 @@ export async function segmentImage(
 export async function predictEquipment(
   imageFile: File,
   topK: number = 5,
-  patchWeight?: number,
+  patchWeight: number = 0.3,
   patchOnly?: boolean
 ): Promise<PredictResponse> {
   const formData = new FormData();
@@ -46,9 +46,8 @@ export async function predictEquipment(
   const url = new URL('/api/predict', window.location.origin);
   url.searchParams.set('top_k', topK.toString());
   
-  if (patchWeight !== undefined) {
-    url.searchParams.set('patch_weight', patchWeight.toString());
-  }
+  // patchWeight 默认值为 0.3，始终传递
+  url.searchParams.set('patch_weight', patchWeight.toString());
   
   if (patchOnly !== undefined) {
     url.searchParams.set('patch_only', patchOnly.toString());

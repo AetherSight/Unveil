@@ -34,7 +34,7 @@ export default function Home() {
   const [boxThreshold, setBoxThreshold] = useState(0.3);
   const [textThreshold, setTextThreshold] = useState(0.25);
   const [displayCount, setDisplayCount] = useState(5);
-  const [patchWeight, setPatchWeight] = useState<number | undefined>(undefined);
+  const [patchWeight, setPatchWeight] = useState<number>(0.3);
   const [patchOnly, setPatchOnly] = useState<boolean | undefined>(undefined);
   const [selectedPart, setSelectedPart] = useState<'head' | 'upper' | 'lower' | 'shoes' | 'hands' | null>(null);
   const [brushMaskFile, setBrushMaskFile] = useState<File | null>(null);
@@ -76,7 +76,9 @@ export default function Home() {
       if (!isNaN(weight) && weight >= 0 && weight <= 1) {
         setPatchWeight(weight);
       }
+      // 如果解析失败或值无效，保持默认值 0.3
     }
+    // 如果没有保存的值，保持默认值 0.3
     if (savedPatchOnly !== null) {
       setPatchOnly(savedPatchOnly === 'true');
     }
@@ -95,11 +97,8 @@ export default function Home() {
   }, [displayCount]);
 
   useEffect(() => {
-    if (patchWeight !== undefined) {
-      localStorage.setItem(STORAGE_KEYS.patchWeight, patchWeight.toString());
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.patchWeight);
-    }
+    // 始终保存 patchWeight
+    localStorage.setItem(STORAGE_KEYS.patchWeight, patchWeight.toString());
   }, [patchWeight]);
 
   useEffect(() => {
@@ -533,103 +532,31 @@ export default function Home() {
                 
             {/* 自动识别按钮 - 显示在使用说明上方 */}
             {imagePreview && (
-              <div className="space-y-3">
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleSegment}
-                    disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
-                      segmentState === 'segmenting'
-                        ? 'bg-blue-100 text-blue-600 cursor-wait'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
-                    }`}
-                  >
-                    {segmentState === 'segmenting' ? (
-                      <>
-                        <LoadingSpinner size="sm" />
-                        <span className="animate-pulse">处理中...</span>
-                      </>
-                    ) : (
-                      '自动识别'
-                    )}
-                  </button>
-                </div>
-                
-                {/* 识别参数设置 */}
-                <div className="space-y-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm text-gray-700 font-light">
-                        局部权重 (patch_weight)
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 font-light">
-                          {patchWeight !== undefined ? patchWeight.toFixed(2) : '未设置'}
-                        </span>
-                        <button
-                          onClick={() => setPatchWeight(undefined)}
-                          className="text-xs text-gray-400 hover:text-gray-600"
-                          title="清除设置"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={patchWeight !== undefined ? patchWeight : 0}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value);
-                        setPatchWeight(value);
-                      }}
-                      disabled={processingState === 'predicting'}
-                      className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        background: patchWeight !== undefined
-                          ? `linear-gradient(to right, #9ca3af 0%, #9ca3af ${patchWeight * 100}%, #e5e7eb ${patchWeight * 100}%, #e5e7eb 100%)`
-                          : undefined
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-700 font-light">
-                      仅使用 patch 特征 (patch_only)
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={patchOnly === true}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setPatchOnly(true);
-                          } else {
-                            setPatchOnly(undefined);
-                          }
-                        }}
-                        disabled={processingState === 'predicting'}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                      {patchOnly !== undefined && (
-                        <button
-                          onClick={() => setPatchOnly(undefined)}
-                          className="text-xs text-gray-400 hover:text-gray-600"
-                          title="清除设置"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+              <div className="flex gap-4">
+                <button
+                  onClick={handleSegment}
+                  disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
+                    segmentState === 'segmenting'
+                      ? 'bg-blue-100 text-blue-600 cursor-wait'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  {segmentState === 'segmenting' ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      <span className="animate-pulse">处理中...</span>
+                    </>
+                  ) : (
+                    '自动识别'
+                  )}
+                </button>
               </div>
             )}
             
             {/* 使用说明和显示结果数量 - 始终显示 */}
             <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <div className="space-y-2 pb-3 border-b border-gray-200">
+              <div className="space-y-2 pb-3">
                 <h3 className="text-sm text-gray-700 font-medium mb-2">使用说明</h3>
                         <ol className="space-y-1.5 text-xs text-gray-600 font-light list-decimal list-inside">
                           <li>点击下方的"自动识别"按钮可以自动识别并分割图片中的各个部位，识别结果将显示在右侧。</li>
@@ -639,28 +566,72 @@ export default function Home() {
                           <li>本服务目前处于试运行阶段（Beta），识别准确率和服务可用性可能不稳定，请谨慎使用。</li>
                         </ol>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-700 font-light">
+              <div className="space-y-3">
+                <div className="grid grid-cols-[80px_1fr_40px] items-center gap-3">
+                  <label className="text-xs text-gray-700 font-light">
                     显示结果数量
                   </label>
-                  <span className="text-xs text-gray-500 font-light">
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={displayCount}
+                    onChange={(e) => setDisplayCount(parseInt(e.target.value))}
+                    disabled={processingState === 'predicting'}
+                    className="h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 9) * 100}%, #e5e7eb ${((displayCount - 1) / 9) * 100}%, #e5e7eb 100%)`
+                    }}
+                  />
+                  <span className="text-xs text-gray-500 font-light text-right">
                     {displayCount}
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="1"
-                  value={displayCount}
-                  onChange={(e) => setDisplayCount(parseInt(e.target.value))}
-                  disabled={processingState === 'predicting'}
-                  className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 9) * 100}%, #e5e7eb ${((displayCount - 1) / 9) * 100}%, #e5e7eb 100%)`
-                  }}
-                />
+                
+                <div className="grid grid-cols-[80px_1fr_40px] items-center gap-3 pt-2">
+                  <label className="text-xs text-gray-700 font-light">
+                    局部权重
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={patchWeight}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      setPatchWeight(value);
+                    }}
+                    disabled={processingState === 'predicting' || patchOnly === true}
+                    className="h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${patchWeight * 100}%, #e5e7eb ${patchWeight * 100}%, #e5e7eb 100%)`
+                    }}
+                  />
+                  <span className="text-xs text-gray-500 font-light text-right">
+                    {patchWeight.toFixed(2)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    checked={patchOnly === true}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setPatchOnly(true);
+                      } else {
+                        setPatchOnly(undefined);
+                      }
+                    }}
+                    disabled={processingState === 'predicting'}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <label className="text-xs text-gray-700 font-light cursor-pointer">
+                    仅使用局部特征
+                  </label>
+                </div>
               </div>
             </div>
           </div>
