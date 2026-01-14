@@ -175,12 +175,12 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
         // 内圈（灰色）
         ctx.fillStyle = '#6b7280';
         centers.forEach((c) => {
-          ctx.fillRect(
+        ctx.fillRect(
             c.x - handleSize / 2 + handleBorder,
             c.y - handleSize / 2 + handleBorder,
-            handleSize - handleBorder * 2,
-            handleSize - handleBorder * 2
-          );
+          handleSize - handleBorder * 2,
+          handleSize - handleBorder * 2
+        );
         });
         return;
       }

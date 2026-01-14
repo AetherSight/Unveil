@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
   boxThreshold: 'unveil_box_threshold',
   textThreshold: 'unveil_text_threshold',
   topK: 'unveil_top_k',
+  patchWeight: 'unveil_patch_weight',
+  patchOnly: 'unveil_patch_only',
 };
 import Image from 'next/image';
 import ImageUpload from '@/components/ImageUpload';
@@ -32,6 +34,8 @@ export default function Home() {
   const [boxThreshold, setBoxThreshold] = useState(0.3);
   const [textThreshold, setTextThreshold] = useState(0.25);
   const [displayCount, setDisplayCount] = useState(5);
+  const [patchWeight, setPatchWeight] = useState<number>(0.3);
+  const [patchOnly, setPatchOnly] = useState<boolean | undefined>(undefined);
   const [selectedPart, setSelectedPart] = useState<'head' | 'upper' | 'lower' | 'shoes' | 'hands' | null>(null);
   const [brushMaskFile, setBrushMaskFile] = useState<File | null>(null);
   const [segmentResults, setSegmentResults] = useState<SegmentResponse | null>(null);
@@ -55,6 +59,8 @@ export default function Home() {
     const savedBoxThreshold = localStorage.getItem(STORAGE_KEYS.boxThreshold);
     const savedTextThreshold = localStorage.getItem(STORAGE_KEYS.textThreshold);
     const savedTopK = localStorage.getItem(STORAGE_KEYS.topK);
+    const savedPatchWeight = localStorage.getItem(STORAGE_KEYS.patchWeight);
+    const savedPatchOnly = localStorage.getItem(STORAGE_KEYS.patchOnly);
     
     if (savedBoxThreshold) {
       setBoxThreshold(parseFloat(savedBoxThreshold));
@@ -64,6 +70,17 @@ export default function Home() {
     }
     if (savedTopK) {
       setDisplayCount(parseInt(savedTopK));
+    }
+    if (savedPatchWeight) {
+      const weight = parseFloat(savedPatchWeight);
+      if (!isNaN(weight) && weight >= 0 && weight <= 1) {
+        setPatchWeight(weight);
+      }
+      // 如果解析失败或值无效，保持默认值 0.3
+    }
+    // 如果没有保存的值，保持默认值 0.3
+    if (savedPatchOnly !== null) {
+      setPatchOnly(savedPatchOnly === 'true');
     }
   }, []);
 
@@ -78,6 +95,19 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.topK, displayCount.toString());
   }, [displayCount]);
+
+  useEffect(() => {
+    // 始终保存 patchWeight
+    localStorage.setItem(STORAGE_KEYS.patchWeight, patchWeight.toString());
+  }, [patchWeight]);
+
+  useEffect(() => {
+    if (patchOnly !== undefined) {
+      localStorage.setItem(STORAGE_KEYS.patchOnly, patchOnly.toString());
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.patchOnly);
+    }
+  }, [patchOnly]);
 
   const handleImageSelect = useCallback((file: File) => {
     setSelectedImage(file);
@@ -157,7 +187,7 @@ export default function Home() {
       setCroppedImageFile(imageToProcess);
 
       // 直接调用预测接口
-      const predictData = await predictEquipment(imageToProcess, 10);
+      const predictData = await predictEquipment(imageToProcess, 10, patchWeight, patchOnly);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
       
@@ -171,7 +201,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '处理失败');
       setProcessingState('error');
     }
-  }, [selectedImage, imagePreview, brushMaskFile, selectedPart, boxThreshold, textThreshold, processingState]);
+  }, [selectedImage, imagePreview, brushMaskFile, selectedPart, boxThreshold, textThreshold, processingState, patchWeight, patchOnly]);
 
   const handleReset = useCallback(() => {
     setSelectedImage(null);
@@ -237,10 +267,10 @@ export default function Home() {
         setResultView('segment');
       } else {
         // 如果没有框选，则自动分割部位
-        const segmentData = await segmentImage(selectedImage, boxThreshold, textThreshold);
-        setSegmentResults(segmentData);
-        setSegmentState('complete');
-        setResultView('segment');
+      const segmentData = await segmentImage(selectedImage, boxThreshold, textThreshold);
+      setSegmentResults(segmentData);
+      setSegmentState('complete');
+      setResultView('segment');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '处理失败');
@@ -284,14 +314,14 @@ export default function Home() {
       setCroppedImageFile(partFile);
 
       // 直接调用识别接口
-      const predictData = await predictEquipment(partFile, 10);
+      const predictData = await predictEquipment(partFile, 10, patchWeight, patchOnly);
       setPredictionResults(predictData.results);
       setProcessingState('complete');
     } catch (err) {
       setError(err instanceof Error ? err.message : '识别失败');
       setProcessingState('error');
     }
-  }, [segmentResults, base64ToFile]);
+  }, [segmentResults, base64ToFile, patchWeight, patchOnly]);
 
   // 处理点击部位按钮（涂抹或框选模式下）
   const handlePartButtonClick = useCallback(async (part: 'head' | 'upper' | 'lower' | 'shoes' | 'hands') => {
@@ -345,7 +375,7 @@ export default function Home() {
         setCroppedImageFile(removedBgFile);
 
         // 调用识别接口
-        const predictData = await predictEquipment(removedBgFile, 10);
+        const predictData = await predictEquipment(removedBgFile, 10, patchWeight, patchOnly);
         setPredictionResults(predictData.results);
         setProcessingState('complete');
       } else {
@@ -371,7 +401,7 @@ export default function Home() {
         setCroppedImageFile(brushMaskFile);
 
         // 调用识别接口
-        const predictData = await predictEquipment(brushMaskFile, 10);
+        const predictData = await predictEquipment(brushMaskFile, 10, patchWeight, patchOnly);
         setPredictionResults(predictData.results);
         setProcessingState('complete');
       }
@@ -386,7 +416,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '识别失败');
       setProcessingState('error');
     }
-  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile, selectionMode, processingState, selectedPart]);
+  }, [brushMaskFile, selectedImage, boxThreshold, textThreshold, cropArea, base64ToFile, selectionMode, processingState, selectedPart, patchWeight, patchOnly]);
 
   // 处理搜索输入变化，自动触发搜索
   const handleSearchInputChange = useCallback((value: string) => {
@@ -454,38 +484,38 @@ export default function Home() {
             ) : null}
             
             {imagePreview ? (
-              <div className="relative">
-                <ImageWithCrop
-                  imageSrc={imagePreview}
-                  onCropAreaChange={handleCropAreaChange}
-                  onBrushMaskChange={handleBrushMaskChange}
-                  cropArea={cropArea}
-                />
+                <div className="relative">
+                  <ImageWithCrop
+                    imageSrc={imagePreview}
+                    onCropAreaChange={handleCropAreaChange}
+                    onBrushMaskChange={handleBrushMaskChange}
+                    cropArea={cropArea}
+                  />
                 <div className="absolute top-2 right-2 z-20">
-                  <button
-                    onClick={handleReset}
-                    disabled={processingState === 'predicting'}
+                    <button
+                      onClick={handleReset}
+                      disabled={processingState === 'predicting'}
                     className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg白 border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="删除图片"
-                  >
-                    <svg
-                      className="w-4 h-4 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                      title="删除图片"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-4 h-4 text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
                 </div>
               </div>
             ) : null}
-            
+                
             {/* 自动识别按钮 - 显示在使用说明上方 */}
             {imagePreview && (
               <div className="flex gap-4">
@@ -512,7 +542,7 @@ export default function Home() {
             
             {/* 使用说明和显示结果数量 - 始终显示 */}
             <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <div className="space-y-2 pb-3 border-b border-gray-200">
+              <div className="space-y-2 pb-3">
                 <h3 className="text-sm text-gray-700 font-medium mb-2">使用说明</h3>
                         <ol className="space-y-1.5 text-xs text-gray-600 font-light list-decimal list-inside">
                           <li>点击下方的"自动识别"按钮可以自动识别并分割图片中的各个部位，识别结果将显示在右侧。</li>
@@ -522,28 +552,72 @@ export default function Home() {
                           <li>本服务目前处于试运行阶段（Beta），识别准确率和服务可用性可能不稳定，请谨慎使用。</li>
                         </ol>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-700 font-light">
+              <div className="space-y-3">
+                <div className="grid grid-cols-[80px_1fr_40px] items-center gap-3">
+                  <label className="text-xs text-gray-700 font-light">
                     显示结果数量
                   </label>
-                  <span className="text-xs text-gray-500 font-light">
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={displayCount}
+                    onChange={(e) => setDisplayCount(parseInt(e.target.value))}
+                    disabled={processingState === 'predicting'}
+                    className="h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 9) * 100}%, #e5e7eb ${((displayCount - 1) / 9) * 100}%, #e5e7eb 100%)`
+                    }}
+                  />
+                  <span className="text-xs text-gray-500 font-light text-right">
                     {displayCount}
                   </span>
                 </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="1"
-                  value={displayCount}
-                  onChange={(e) => setDisplayCount(parseInt(e.target.value))}
-                  disabled={processingState === 'predicting'}
-                  className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${((displayCount - 1) / 9) * 100}%, #e5e7eb ${((displayCount - 1) / 9) * 100}%, #e5e7eb 100%)`
-                  }}
-                />
+                
+                <div className="grid grid-cols-[80px_1fr_40px] items-center gap-3 pt-2">
+                  <label className="text-xs text-gray-700 font-light">
+                    局部权重
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={patchWeight}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      setPatchWeight(value);
+                    }}
+                    disabled={processingState === 'predicting' || patchOnly === true}
+                    className="h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      background: `linear-gradient(to right, #9ca3af 0%, #9ca3af ${patchWeight * 100}%, #e5e7eb ${patchWeight * 100}%, #e5e7eb 100%)`
+                    }}
+                  />
+                  <span className="text-xs text-gray-500 font-light text-right">
+                    {patchWeight.toFixed(2)}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    checked={patchOnly === true}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setPatchOnly(true);
+                      } else {
+                        setPatchOnly(undefined);
+                      }
+                    }}
+                    disabled={processingState === 'predicting'}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  <label className="text-xs text-gray-700 font-light cursor-pointer">
+                    仅使用局部特征
+                  </label>
+                </div>
               </div>
             </div>
           </div>

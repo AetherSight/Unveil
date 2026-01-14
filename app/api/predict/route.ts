@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const topK = request.nextUrl.searchParams.get('top_k') || '5';
+    const patchWeight = request.nextUrl.searchParams.get('patch_weight');
+    const patchOnly = request.nextUrl.searchParams.get('patch_only');
 
     const imageFile = formData.get('image') as File | null;
     if (!imageFile) {
@@ -28,6 +30,14 @@ export async function POST(request: NextRequest) {
     const revelationUrl = getNextRevelationUrl();
     const backendUrl = new URL(`${revelationUrl}/predict`);
     backendUrl.searchParams.set('top_k', topK.toString());
+    
+    if (patchWeight !== null) {
+      backendUrl.searchParams.set('patch_weight', patchWeight);
+    }
+    
+    if (patchOnly !== null) {
+      backendUrl.searchParams.set('patch_only', patchOnly);
+    }
 
     const response = await fetch(backendUrl.toString(), {
       method: 'POST',
