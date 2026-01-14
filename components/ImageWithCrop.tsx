@@ -819,9 +819,7 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
   // 框选模式：开始拖拽
   const handleBoxStart = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
     if (mode !== 'box') return;
-    if ('touches' in e) {
-      e.preventDefault();
-    }
+    e.preventDefault();
     e.stopPropagation();
     const pos = getPosFromEvent(e);
     
@@ -1128,6 +1126,7 @@ export default function ImageWithCrop({ imageSrc, onCropAreaChange, onBrushMaskC
           src={imageSrc}
           alt="预览"
           className="w-full h-full object-contain"
+          draggable={false}
           onLoad={handleImageLoad}
         />
 
