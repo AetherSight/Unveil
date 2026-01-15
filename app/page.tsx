@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   topK: 'unveil_top_k',
   patchWeight: 'unveil_patch_weight',
   patchOnly: 'unveil_patch_only',
+  guideSeen: 'unveil_guide_seen',
 };
 import Image from 'next/image';
 import ImageUpload from '@/components/ImageUpload';
@@ -47,6 +48,7 @@ export default function Home() {
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<string[]>([]); // 自动补全建议
   const [autocompleteVisible, setAutocompleteVisible] = useState(false); // 是否显示自动补全
   const [allTags, setAllTags] = useState<string[]>([]); // 所有 tags，从后端获取一次后保存在本地
+  const [showGuide, setShowGuide] = useState<boolean>(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 搜索防抖
   const searchInputRef = useRef<HTMLInputElement>(null); // 搜索输入框引用
   const lastProcessedRef = useRef<{
@@ -62,6 +64,7 @@ export default function Home() {
     const savedTopK = localStorage.getItem(STORAGE_KEYS.topK);
     const savedPatchWeight = localStorage.getItem(STORAGE_KEYS.patchWeight);
     const savedPatchOnly = localStorage.getItem(STORAGE_KEYS.patchOnly);
+    const guideSeen = localStorage.getItem(STORAGE_KEYS.guideSeen);
     
     if (savedTopK) {
       setDisplayCount(parseInt(savedTopK));
@@ -76,6 +79,9 @@ export default function Home() {
     // 如果没有保存的值，保持默认值 0.3
     if (savedPatchOnly !== null) {
       setPatchOnly(savedPatchOnly === 'true');
+    }
+    if (!guideSeen) {
+      setShowGuide(true);
     }
   }, []);
 
@@ -584,8 +590,48 @@ export default function Home() {
   }, [selectedTags, handleSearchByTags]);
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-white relative">
+      {showGuide && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-base font-medium text-gray-800 mb-1">使用指引</h2>
+                <p className="text-xs text-gray-500 font-light">首次使用时可以按下面的顺序来操作：</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowGuide(false);
+                  localStorage.setItem(STORAGE_KEYS.guideSeen, 'true');
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <ol className="list-decimal list-inside space-y-1.5 text-xs text-gray-700 font-light">
+              <li>上传一张你想识别的装备截图（支持拖拽、点击上传或直接粘贴）。</li>
+              <li>在左侧图片上框选（或涂抹）你要识别的部位区域；框选后，右侧“分割结果”中的身体1会自动出现预览。</li>
+              <li>点击“分割结果”中的身体1（或对应部位），系统会对该部位进行识别并在下方显示候选装备。</li>
+              <li>在识别结果中选择最接近的装备；如果都不对，可以在右上角搜索框中用标签/关键词补充描述进行搜索。</li>
+            </ol>
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setShowGuide(false);
+                  localStorage.setItem(STORAGE_KEYS.guideSeen, 'true');
+                }}
+                className="px-3 py-1.5 text-xs rounded-md bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+              >
+                知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-light text-gray-800 mb-4 relative inline-block">
             <span className="relative">
@@ -677,12 +723,8 @@ export default function Home() {
             {/* 使用说明和显示结果数量 - 始终显示 */}
             <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
               <div className="space-y-2 pb-3">
-                <h3 className="text-sm text-gray-700 font-medium mb-2">使用说明</h3>
+                <h3 className="text-sm text-gray-700 font-medium mb-2">识别设置</h3>
                         <ol className="space-y-1.5 text-xs text-gray-600 font-light list-decimal list-inside">
-                          <li>点击下方的"自动识别"按钮可以自动识别并分割图片中的各个部位，识别结果将显示在右侧。</li>
-                          <li>如果已框选区域，点击"自动识别"将移除背景并显示到上身1；如果未框选，将自动分割所有部位。</li>
-                          <li>如果识别结果中找到了匹配的装备，请点击右侧装备卡片上的图标进行反馈，这将帮助我们持续提升识别准确率。</li>
-                          <li>相同模型的装备会合并显示，点击后可查看该模型下的所有装备变体。</li>
                           <li>本服务目前处于试运行阶段，识别准确率和服务可用性可能不稳定，请谨慎使用。</li>
                         </ol>
               </div>
