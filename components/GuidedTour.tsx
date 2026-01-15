@@ -274,7 +274,6 @@ const Mask = styled.div`
 const MaskBlock = styled.div`
   position: absolute;
   background: rgba(0, 0, 0, 0.7);
-  transition: all 200ms ease;
 `;
 
 const HighlightBorder = styled.div<{ rect: Rect | null }>`
