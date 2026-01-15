@@ -800,7 +800,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="flex flex-col space-y-4">
-            <div className="tour-upload">
+            <div className="tour-upload min-h-[220px]">
               {!imagePreview ? (
                 <ImageUpload
                   onImageSelect={handleImageSelect}
@@ -1044,12 +1044,25 @@ export default function Home() {
                   onPartClick={handleSegmentPartClick}
                 />
               ) : (
-                <div className="flex items-center justify-center py-8">
-                  <p className="text-sm text-gray-400 font-light">
-                    {imagePreview
-                      ? '点击左侧“自动识别”，系统会自动拆分不同身体部位。'
-                      : '上传图片后，这里会展示可点击的身体部位示意图。'}
-                  </p>
+                <div className="w-full">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {/* 左侧静态骨架卡片 */}
+                    <div className="flex flex-col items-center">
+                      <div className="relative w-full aspect-square mb-2 bg-gray-100 rounded overflow-hidden">
+                        <div className="w-full h-full bg-gray-200" />
+                      </div>
+                      <div className="h-4 w-16 bg-gray-200 rounded" />
+                    </div>
+                    {/* 右侧“...” 占位，和左侧并排 */}
+                    <div className="flex flex-col items-center">
+                      <div className="relative w-full aspect-square mb-2 flex items-center justify-center">
+                        <span className="text-gray-300 text-xl tracking-[0.3em] select-none">
+                          ...
+                        </span>
+                      </div>
+                      <div className="h-4 w-16" />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1074,16 +1087,27 @@ export default function Home() {
                     <p className="text-sm text-gray-400 font-light">识别中...</p>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center py-12">
-                    <p className="text-sm text-gray-400 font-light">
-                      {imagePreview
-                        ? segmentResults
-                          ? '点击上方结果中的部位进行识别'
-                          : '请先进行自动分割'
-                        : tourCurrentStep !== null
-                          ? '教程演示中：实际使用时，请先在左侧上传一张截图。'
-                          : '请先在左侧上传图片并选择需要识别的部位'}
-                    </p>
+                  <div className="w-full">
+                    <div className="space-y-2">
+                      {[1].map((index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-100" />
+                            <div className="flex flex-col gap-2">
+                              <div className="h-5 w-32 bg-gray-100 rounded" />
+                              <div className="h-3 w-16 bg-gray-50 rounded" />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden" />
+                            <div className="w-12 h-4 bg-gray-100 rounded" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

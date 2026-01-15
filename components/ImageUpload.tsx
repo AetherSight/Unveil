@@ -77,7 +77,7 @@ export default function ImageUpload({ onImageSelect, disabled }: ImageUploadProp
         className="hidden"
         disabled={disabled}
       />
-      <div className="flex flex-col items-center justify-center py-12 px-6">
+      <div className="flex flex-col items-center justify-center py-12 px-6 min-h-[210px]">
         <svg
           className="w-12 h-12 text-gray-400 mb-4"
           fill="none"
