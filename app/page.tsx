@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import GuidedTour, {
+  type GuidedTourHandle,
+  type TourStep,
+} from '@/components/GuidedTour';
 
 const STORAGE_KEYS = {
   topK: 'unveil_top_k',
@@ -23,6 +27,8 @@ type ProcessingState = 'idle' | 'predicting' | 'complete' | 'error';
 type ResultView = 'prediction' | 'segment';
 
 export default function Home() {
+  const tourRef = useRef<GuidedTourHandle | null>(null);
+
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [predictionResults, setPredictionResults] = useState<PredictionResult[]>([]);
@@ -58,6 +64,35 @@ export default function Home() {
     imageKey: string | null;
     hasBrushMask: boolean;
   }>({ imageKey: null, hasBrushMask: false });
+
+  // 新手引导期间的 forge 数据快照，用于结束后恢复
+  const [isTourForging, setIsTourForging] = useState(false);
+  const tourOriginalPredictionRef = useRef<PredictionResult[] | null>(null);
+  const tourOriginalSearchRef = useRef<{
+    selectedTags: string[];
+    searchQuery: string;
+    searchResults: TagSearchResult[];
+    searchState: typeof searchState;
+  } | null>(null);
+  const [tourCurrentStep, setTourCurrentStep] = useState<number | null>(null);
+
+  const clearTourForgeData = useCallback(() => {
+    if (!isTourForging) return;
+
+    if (tourOriginalPredictionRef.current) {
+      setPredictionResults(tourOriginalPredictionRef.current);
+    }
+    if (tourOriginalSearchRef.current) {
+      setSelectedTags(tourOriginalSearchRef.current.selectedTags);
+      setSearchQuery(tourOriginalSearchRef.current.searchQuery);
+      setSearchResults(tourOriginalSearchRef.current.searchResults);
+      setSearchState(tourOriginalSearchRef.current.searchState);
+    }
+
+    tourOriginalPredictionRef.current = null;
+    tourOriginalSearchRef.current = null;
+    setIsTourForging(false);
+  }, [isTourForging, setPredictionResults, setSelectedTags, setSearchQuery, setSearchResults, setSearchState]);
 
   useEffect(() => {
     const savedTopK = localStorage.getItem(STORAGE_KEYS.topK);
@@ -603,6 +638,141 @@ export default function Home() {
     }
   }, [selectedTags, handleSearchByTags]);
 
+  // Guided Tour 步骤定义：1. 上传图片 2. 设置 3. 部位/分割 4. 结果 5. 搜索
+  const tourSteps: TourStep[] = [
+    {
+      targetSelector: '.tour-upload',
+      title: '上传一张角色截图',
+      content: '点击这里上传一张你的穿搭截图，或直接粘贴剪贴板中的图片。',
+      placement: 'bottom',
+    },
+    {
+      targetSelector: '.tour-settings',
+      title: '调整识别设置',
+      content: '通过结果数量和局部权重控制推荐列表的长度和对选区的敏感度。',
+      placement: 'right',
+    },
+    {
+      targetSelector: '.tour-segment',
+      title: '自动分割身体部位',
+      content: '点击“自动识别”先将人物拆分为不同部位，稍后就可以点选上衣等具体区域。',
+      placement: 'bottom',
+    },
+    {
+      targetSelector: '.tour-results',
+      title: '查看识别结果',
+      content: '这里会展示与当前部位最相似的装备，并支持一键跳转到 Wiki 查看详情。',
+      placement: 'left',
+    },
+    {
+      targetSelector: '.tour-search',
+      title: '按标签搜索装备',
+      content: '也可以不用图片，直接通过风格、颜色等标签搜索装备搭配。',
+      placement: 'top',
+    },
+  ];
+
+  // Guided Tour 步骤变更时注入/恢复少量 forge 数据
+  const handleTourStepChange = useCallback(
+    (stepIndex: number | null) => {
+      if (stepIndex === null) {
+        setTourCurrentStep(null);
+        clearTourForgeData();
+        return;
+      }
+
+       setTourCurrentStep(stepIndex);
+
+      // 首次进入引导时记录当前真实数据
+      if (!isTourForging) {
+        tourOriginalPredictionRef.current = predictionResults;
+        tourOriginalSearchRef.current = {
+          selectedTags,
+          searchQuery,
+          searchResults,
+          searchState,
+        };
+        setIsTourForging(true);
+      }
+
+      // 针对不同步骤，适度造一些演示数据
+      switch (stepIndex) {
+        case 3: {
+          // 结果指引：若当前没有结果，则造一小段演示列表
+          if (predictionResults.length === 0) {
+            const demoResults: PredictionResult[] = [
+              {
+                rank: 1,
+                label: '示例上衣_12345',
+                score: 0.93,
+              },
+              {
+                rank: 2,
+                label: '示例上衣（染色）_67890',
+                score: 0.86,
+              },
+              {
+                rank: 3,
+                label: '相似风格外套_13579',
+                score: 0.78,
+              },
+            ];
+            setPredictionResults(demoResults);
+          }
+          break;
+        }
+        case 4: {
+          // 搜索指引：若当前没有搜索结果，则造一组演示搜索
+          if (searchResults.length === 0) {
+            const demoTag = '白色连衣裙';
+            if (selectedTags.length === 0) {
+              setSelectedTags([demoTag]);
+            }
+            setSearchQuery(demoTag);
+            const demoSearchResults: TagSearchResult[] = [
+              {
+                equipment_id: '24680',
+                equipment_name: '云端礼仪长裙',
+                all_labels: '白色, 长裙, 优雅, 礼服',
+                appearance_description: '白色蕾丝与轻盈裙摆，适合正式场合与宴会穿着。',
+                match_score: 0.95,
+                matched_labels: ['白色', '长裙'],
+                description_matches: ['礼仪', '裙摆'],
+                name_matches: ['长裙'],
+                same_model_gears: [],
+              },
+              {
+                equipment_id: '11223',
+                equipment_name: '星光小礼裙',
+                all_labels: '白色, 短裙, 典雅, 缎面',
+                appearance_description: '缎面质感搭配金属扣装饰，兼具可爱与成熟气质。',
+                match_score: 0.88,
+                matched_labels: ['白色'],
+                description_matches: ['缎面'],
+                name_matches: ['礼裙'],
+                same_model_gears: [],
+              },
+            ];
+            setSearchResults(demoSearchResults);
+            setSearchState('complete');
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    },
+    [
+      clearTourForgeData,
+      isTourForging,
+      predictionResults,
+      searchResults,
+      searchState,
+      searchQuery,
+      selectedTags,
+    ],
+  );
+
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -630,72 +800,71 @@ export default function Home() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="flex flex-col space-y-4">
-            {!imagePreview ? (
-              <ImageUpload
-                onImageSelect={handleImageSelect}
-                disabled={processingState === 'predicting'}
-              />
-            ) : null}
-            
-            {imagePreview ? (
-              <div className="relative">
-                <ImageWithCrop
-                  imageSrc={imagePreview}
-                  onCropAreaChange={handleCropAreaChange}
-                  onBrushMaskChange={handleBrushMaskChange}
-                  cropArea={cropArea}
+            <div className="tour-upload">
+              {!imagePreview ? (
+                <ImageUpload
+                  onImageSelect={handleImageSelect}
+                  disabled={processingState === 'predicting'}
                 />
-                <div className="absolute top-2 right-2 z-20">
-                  <button
-                    onClick={handleReset}
-                    disabled={processingState === 'predicting'}
-                    className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg白 border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="删除图片"
-                  >
-                    <svg
-                      className="w-4 h-4 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+              ) : (
+                <div className="relative">
+                  <ImageWithCrop
+                    imageSrc={imagePreview}
+                    onCropAreaChange={handleCropAreaChange}
+                    onBrushMaskChange={handleBrushMaskChange}
+                    cropArea={cropArea}
+                  />
+                  <div className="absolute top-2 right-2 z-20">
+                    <button
+                      onClick={handleReset}
+                      disabled={processingState === 'predicting'}
+                      className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg白 border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="删除图片"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-4 h-4 text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              )}
+            </div>
                 
-            {/* 自动识别按钮 - 显示在使用说明上方 */}
-            {imagePreview && (
-              <div className="flex gap-4">
-                <button
-                  onClick={handleSegment}
-                  disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
-                    segmentState === 'segmenting'
-                      ? 'bg-blue-100 text-blue-600 cursor-wait'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  {segmentState === 'segmenting' ? (
-                    <>
-                      <LoadingSpinner size="sm" />
-                      <span className="animate-pulse">处理中...</span>
-                    </>
-                  ) : (
-                    '自动识别'
-                  )}
-                </button>
-              </div>
-            )}
+            {/* 自动识别按钮 - 始终显示在使用说明上方 */}
+            <div className="flex gap-4 tour-segment">
+              <button
+                onClick={handleSegment}
+                disabled={!selectedImage || segmentState === 'segmenting' || processingState === 'predicting'}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-light transition-all duration-200 flex items-center justify-center gap-2 ${
+                  segmentState === 'segmenting'
+                    ? 'bg-blue-100 text-blue-600 cursor-wait'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+                title={!selectedImage ? '请先上传图片' : undefined}
+              >
+                {segmentState === 'segmenting' ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    <span className="animate-pulse">处理中...</span>
+                  </>
+                ) : (
+                  '自动识别'
+                )}
+              </button>
+            </div>
             
             {/* 使用说明和显示结果数量 - 始终显示 */}
-            <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
+            <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50 tour-settings">
               <div className="space-y-2 pb-3">
                 <h3 className="text-sm text-gray-700 font-medium mb-2">识别设置</h3>
               </div>
@@ -771,79 +940,76 @@ export default function Home() {
 
           <div className="flex flex-col space-y-4">
             {/* 搜索框 */}
-            <div className="w-full border border-gray-200 rounded-lg bg-white p-4">
+            <div className="w-full border border-gray-200 rounded-lg bg-white p-4 tour-search">
               <div className="relative">
-                {/* 已选择的 tags */}
-                {selectedTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {selectedTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-light rounded-lg"
+                <div
+                  className="flex items-center gap-2 px-3 h-10 border border-gray-300 rounded-lg text-xs font-light overflow-hidden"
+                >
+                  <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+
+                  {selectedTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-700 text-xs font-light rounded-lg"
+                    >
+                      <span>{tag}</span>
+                      <button
+                        onClick={() => removeTag(tag)}
+                        className="hover:text-gray-900 transition-colors"
+                        aria-label={`删除标签 ${tag}`}
                       >
-                        <span>{tag}</span>
-                        <button
-                          onClick={() => removeTag(tag)}
-                          className="hover:text-gray-900 transition-colors"
-                          aria-label={`删除标签 ${tag}`}
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </span>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchInputChange(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    onFocus={() => {
+                      if (autocompleteSuggestions.length > 0) {
+                        setAutocompleteVisible(true);
+                      }
+                    }}
+                    onBlur={() => {
+                      // 延迟隐藏，以便点击自动补全项时能触发
+                      setTimeout(() => setAutocompleteVisible(false), 200);
+                    }}
+                    placeholder={selectedTags.length > 0 ? "" : "搜索标签..."}
+                    className="flex-1 min-w-[80px] border-none outline-none bg-transparent text-xs font-light placeholder-gray-400"
+                    suppressHydrationWarning
+                  />
+
+                  {searchState === 'searching' && (
+                    <LoadingSpinner size="sm" />
+                  )}
+                </div>
+
+                {/* 自动补全下拉 */}
+                {autocompleteVisible && autocompleteSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    {autocompleteSuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                          addTag(suggestion);
+                          searchInputRef.current?.focus();
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm font-light text-gray-700 hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                      >
+                        {suggestion}
+                      </button>
                     ))}
                   </div>
                 )}
-                
-                <div className="relative">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => handleSearchInputChange(e.target.value)}
-                      onKeyDown={handleSearchKeyDown}
-                      onFocus={() => {
-                        if (autocompleteSuggestions.length > 0) {
-                          setAutocompleteVisible(true);
-                        }
-                      }}
-                      onBlur={() => {
-                        // 延迟隐藏，以便点击自动补全项时能触发
-                        setTimeout(() => setAutocompleteVisible(false), 200);
-                      }}
-                      placeholder={selectedTags.length > 0 ? "添加标签..." : "搜索标签..."}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-xs font-light focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      suppressHydrationWarning
-                    />
-                    {searchState === 'searching' && (
-                      <LoadingSpinner size="sm" />
-                    )}
-                  </div>
-                  
-                  {/* 自动补全下拉 */}
-                  {autocompleteVisible && autocompleteSuggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-                      {autocompleteSuggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => {
-                            addTag(suggestion);
-                            searchInputRef.current?.focus();
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm font-light text-gray-700 hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 
@@ -851,7 +1017,7 @@ export default function Home() {
             {searchResults.length > 0 && (
               <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
                 <h3 className="text-sm font-light text-gray-700 mb-4">搜索结果</h3>
-                <PredictionResults 
+                <PredictionResults
                   results={searchResults.map((result, index) => ({
                     rank: index + 1,
                     label: `${result.equipment_name}_${result.equipment_id}`,
@@ -859,72 +1025,80 @@ export default function Home() {
                     name: result.equipment_name,
                     id: result.equipment_id,
                     same_model_gears: result.same_model_gears,
-                  }))} 
+                  }))}
                   croppedImageFile={null}
                   isSearchResult={true}
                 />
               </div>
             )}
 
-            {imagePreview ? (
-              <>
-                {/* 分割结果区域 - 仅在自动分割后显示 */}
-                {(segmentResults || segmentState === 'segmenting') && (
-                  <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-                    <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
-                    {segmentState === 'segmenting' ? (
-                      <SegmentResultsSkeleton />
-                    ) : segmentResults ? (
-                      <SegmentResults 
-                        results={segmentResults} 
-                        selectedPart={selectedSegmentPart}
-                        onPartClick={handleSegmentPartClick}
-                      />
-                    ) : null}
+            {/* 分割结果区域：在自动分割后或教程步数 >= 2 时展示 */}
+            {(segmentResults ||
+              segmentState === 'segmenting' ||
+              (tourCurrentStep !== null && tourCurrentStep >= 2)) && (
+              <div className="w-full border border-gray-200 rounded-lg bg-white p-6 tour-segment-card">
+                <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
+                {segmentState === 'segmenting' ? (
+                  <SegmentResultsSkeleton />
+                ) : segmentResults ? (
+                  <SegmentResults
+                    results={segmentResults}
+                    selectedPart={selectedSegmentPart}
+                    onPartClick={handleSegmentPartClick}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <p className="text-sm text-gray-400 font-light">
+                      {imagePreview
+                        ? '点击左侧“自动识别”，系统会自动拆分不同身体部位。'
+                        : '上传图片后，这里会展示可点击的身体部位示意图。'}
+                    </p>
                   </div>
                 )}
-                
-                {/* 识别结果区域 */}
-                <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-                  <h3 className="text-sm font-light text-gray-700 mb-4">
-                    {selectedSegmentPart ? `识别结果 - ${partLabels[selectedSegmentPart]}` : '识别结果'}
-                  </h3>
-                  {processingState === 'predicting' ? (
-                    <PredictionResultsSkeleton />
-                  ) : predictionResults.length > 0 ? (
-                    <PredictionResults 
-                      results={predictionResults.slice(0, displayCount)} 
-                      croppedImageFile={croppedImageFile}
-                    />
-                  ) : selectedSegmentPart ? (
-                    <div className="flex items-center justify-center py-12">
-                      <p className="text-sm text-gray-400 font-light">识别中...</p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center py-12">
-                      <p className="text-sm text-gray-400 font-light">
-                        {segmentResults 
-                          ? '点击上方结果中的部位进行识别' 
-                          : '请先进行自动分割'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
-                <div className="flex items-center justify-center py-12">
-                  <p className="text-sm text-gray-400 font-light">请先上传图片</p>
-                </div>
               </div>
             )}
+
+            {/* 识别结果区域：始终保留，用于教程高亮 */}
+            <div className="w-full border border-gray-200 rounded-lg bg-white p-6 tour-results">
+              <h3 className="text-sm font-light text-gray-700 mb-4">
+                {selectedSegmentPart
+                  ? `识别结果 - ${partLabels[selectedSegmentPart]}`
+                  : '识别结果'}
+              </h3>
+              <div className="max-h-80 overflow-y-auto pr-2">
+                {processingState === 'predicting' ? (
+                  <PredictionResultsSkeleton />
+                ) : predictionResults.length > 0 ? (
+                  <PredictionResults
+                    results={predictionResults.slice(0, displayCount)}
+                    croppedImageFile={croppedImageFile}
+                  />
+                ) : selectedSegmentPart ? (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-sm text-gray-400 font-light">识别中...</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-sm text-gray-400 font-light">
+                      {imagePreview
+                        ? segmentResults
+                          ? '点击上方结果中的部位进行识别'
+                          : '请先进行自动分割'
+                        : tourCurrentStep !== null
+                          ? '教程演示中：实际使用时，请先在左侧上传一张截图。'
+                          : '请先在左侧上传图片并选择需要识别的部位'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
         <footer className="mt-16 pt-8 pb-8 border-t border-gray-200">
-          <div className="flex flex-col items-center gap-4 text-sm text-gray-500 font-light">
-            <div className="flex items-center gap-2 flex-wrap justify-center">
-              <span>Powered by </span>
+          <div className="flex flex-col items-center gap-3 text-gray-500 font-light">
+            <div className="flex items-center gap-2 flex-wrap justify-center text-xs">
+              <span>Powered by</span>
               <a
                 href="https://github.com/AetherSight/"
                 target="_blank"
@@ -934,14 +1108,30 @@ export default function Home() {
                 AetherSight
               </a>
               <span> with ♥</span>
+              <button
+                type="button"
+                onClick={() => tourRef.current?.start()}
+                className="ml-2 inline-flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <span className="text-gray-300">|</span>
+                <span>帮助</span>
+              </button>
             </div>
-            <div className="text-center space-y-1">
+            <div className="text-center space-y-1 text-[11px]">
               <p>FINAL FANTASY XIV © 2010-2026 SQUARE ENIX CO., LTD. All Rights Reserved.</p>
               <p>This project is not affiliated with or endorsed by SQUARE ENIX CO., LTD.</p>
             </div>
           </div>
         </footer>
         </div>
+      {/* 全局新手引导组件 */}
+      <GuidedTour
+        ref={tourRef}
+        tourKey="home_v1"
+        steps={tourSteps}
+        autoStart={true}
+        onStepChange={handleTourStepChange}
+      />
     </div>
   );
 }
