@@ -740,9 +740,6 @@ export default function Home() {
             <div className="space-y-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
               <div className="space-y-2 pb-3">
                 <h3 className="text-sm text-gray-700 font-medium mb-2">识别设置</h3>
-                        <ol className="space-y-1.5 text-xs text-gray-600 font-light list-decimal list-inside">
-                          <li>本服务目前处于试运行阶段，识别准确率和服务可用性可能不稳定，请谨慎使用。</li>
-                        </ol>
               </div>
               <div className="space-y-3">
                 <div className="grid grid-cols-[80px_1fr_40px] items-center gap-3">
@@ -972,13 +969,24 @@ export default function Home() {
               <span>Powered by </span>
               <a
                 href="https://github.com/AetherSight/"
-            target="_blank"
-            rel="noopener noreferrer"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-gray-600 hover:text-gray-800 transition-colors underline"
               >
                 AetherSight
               </a>
               <span> with ♥</span>
+              <span className="mx-2 text-gray-300">|</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideStep(1);
+                  setShowGuide(true);
+                }}
+                className="text-gray-500 hover:text-gray-800 underline underline-offset-2"
+              >
+                帮助
+              </button>
             </div>
             <div className="text-center space-y-1">
               <p>FINAL FANTASY XIV © 2010-2026 SQUARE ENIX CO., LTD. All Rights Reserved.</p>
