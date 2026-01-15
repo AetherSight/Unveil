@@ -1032,31 +1032,27 @@ export default function Home() {
               </div>
             )}
 
-            {/* 分割结果区域：在自动分割后或教程步数 >= 2 时展示 */}
-            {(segmentResults ||
-              segmentState === 'segmenting' ||
-              (tourCurrentStep !== null && tourCurrentStep >= 2)) && (
-              <div className="w-full border border-gray-200 rounded-lg bg-white p-6 tour-segment-card">
-                <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
-                {segmentState === 'segmenting' ? (
-                  <SegmentResultsSkeleton />
-                ) : segmentResults ? (
-                  <SegmentResults
-                    results={segmentResults}
-                    selectedPart={selectedSegmentPart}
-                    onPartClick={handleSegmentPartClick}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center py-8">
-                    <p className="text-sm text-gray-400 font-light">
-                      {imagePreview
-                        ? '点击左侧“自动识别”，系统会自动拆分不同身体部位。'
-                        : '上传图片后，这里会展示可点击的身体部位示意图。'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* 分割结果区域：默认展示，让“识别部位”始终可见 */}
+            <div className="w-full border border-gray-200 rounded-lg bg-white p-6 tour-segment-card">
+              <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
+              {segmentState === 'segmenting' ? (
+                <SegmentResultsSkeleton />
+              ) : segmentResults ? (
+                <SegmentResults
+                  results={segmentResults}
+                  selectedPart={selectedSegmentPart}
+                  onPartClick={handleSegmentPartClick}
+                />
+              ) : (
+                <div className="flex items-center justify-center py-8">
+                  <p className="text-sm text-gray-400 font-light">
+                    {imagePreview
+                      ? '点击左侧“自动识别”，系统会自动拆分不同身体部位。'
+                      : '上传图片后，这里会展示可点击的身体部位示意图。'}
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* 识别结果区域：始终保留，用于教程高亮 */}
             <div className="w-full border border-gray-200 rounded-lg bg-white p-6 tour-results">
