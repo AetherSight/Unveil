@@ -1092,18 +1092,18 @@ export default function Home() {
                       {[1].map((index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 border border-gray-200 rounded-lg bg-white"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-100" />
-                            <div className="flex flex-col gap-2">
-                              <div className="h-5 w-32 bg-gray-100 rounded" />
-                              <div className="h-3 w-16 bg-gray-50 rounded" />
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0" />
+                            <div className="flex flex-col gap-2 flex-1 min-w-0">
+                              <div className="h-4 w-24 sm:w-32 bg-gray-100 rounded" />
+                              <div className="h-3 w-12 sm:w-16 bg-gray-50 rounded" />
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden" />
-                            <div className="w-12 h-4 bg-gray-100 rounded" />
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="flex-1 sm:w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden" />
+                            <div className="h-3 w-10 bg-gray-100 rounded flex-shrink-0" />
                           </div>
                         </div>
                       ))}
