@@ -131,9 +131,9 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
           return (
             <div
               key={result.rank}
-              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 border border-gray-200 rounded-lg bg-white"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 {iconUrl ? (
                   <div 
                     className={`relative w-12 h-12 flex-shrink-0 ${
@@ -293,14 +293,14 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                 </div>
               </div>
               {!isSearchResult && (
-                <div className="flex items-center gap-2">
-                  <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="flex items-center gap-2 w-full sm:w-[160px] justify-between mt-1 sm:mt-0">
+                  <div className="w-full sm:w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-400 transition-all"
                       style={{ width: `${result.score * 100}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-500 w-12 text-right font-light">
+                  <span className="ml-1 text-xs text-gray-500 w-11 text-right font-light flex-shrink-0">
                     {(result.score * 100).toFixed(1)}%
                   </span>
                 </div>
@@ -311,9 +311,9 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
         {!isSearchResult && (
           <div
             key={UNKNOWN_RANK}
-            className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white"
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 border border-gray-200 rounded-lg bg-white"
           >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div 
               className={`relative w-12 h-12 flex-shrink-0 flex items-center justify-center bg-gray-100 rounded transition-opacity ${
                 !croppedImageFile
@@ -357,14 +357,14 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="flex items-center gap-2 w-full sm:w-[160px] justify-between mt-1 sm:mt-0">
+            <div className="w-full sm:w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-400 transition-all"
                 style={{ width: '0%' }}
               />
             </div>
-            <span className="text-xs text-gray-500 w-12 text-right font-light">
+            <span className="ml-1 text-xs text-gray-500 w-11 text-right font-light flex-shrink-0">
               0.00%
             </span>
           </div>

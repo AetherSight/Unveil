@@ -18,8 +18,8 @@ export default function PredictionResultsSkeleton() {
                 <div className="h-3 w-12 sm:w-16 bg-gray-100 rounded animate-pulse" />
               </div>
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="flex-1 sm:w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div className="flex items-center gap-2 w-[140px] sm:w-[180px] justify-between">
+              <div className="w-20 sm:w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div className="h-full bg-gray-300 animate-pulse w-2/3" />
               </div>
               {/* 相似度数值骨架：改成固定小块，避免挤出屏幕 */}

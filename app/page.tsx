@@ -1101,8 +1101,8 @@ export default function Home() {
                               <div className="h-3 w-12 sm:w-16 bg-gray-50 rounded" />
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <div className="flex-1 sm:w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden" />
+                          <div className="flex items-center gap-2 w-[140px] sm:w-[180px] justify-between">
+                            <div className="w-20 sm:w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden" />
                             <div className="h-3 w-10 bg-gray-100 rounded flex-shrink-0" />
                           </div>
                         </div>
