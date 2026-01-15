@@ -1074,7 +1074,7 @@ export default function Home() {
                   ? `识别结果 - ${partLabels[selectedSegmentPart]}`
                   : '识别结果'}
               </h3>
-              <div className="max-h-80 overflow-y-auto pr-2">
+              <div className="max-h-[60vh] lg:max-h-80 overflow-y-auto overflow-x-hidden pr-2">
                 {processingState === 'predicting' ? (
                   <PredictionResultsSkeleton />
                 ) : predictionResults.length > 0 ? (
