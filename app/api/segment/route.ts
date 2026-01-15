@@ -4,8 +4,6 @@ import { getNextDissectorUrl } from '@/lib/dissector-client';
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const boxThreshold = request.nextUrl.searchParams.get('box_threshold') || '0.3';
-    const textThreshold = request.nextUrl.searchParams.get('text_threshold') || '0.25';
 
     const imageFile = formData.get('image') as File | null;
     if (!imageFile) {
@@ -21,8 +19,6 @@ export async function POST(request: NextRequest) {
     // 使用轮询获取下一个可用的服务地址
     const dissectorUrl = getNextDissectorUrl();
     const url = new URL(`${dissectorUrl}/segment`);
-    url.searchParams.set('box_threshold', boxThreshold);
-    url.searchParams.set('text_threshold', textThreshold);
 
     const response = await fetch(url.toString(), {
       method: 'POST',

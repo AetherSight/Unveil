@@ -2,15 +2,11 @@ import type { SegmentResponse, PredictResponse, ApiError, TagSearchResponse, Equ
 
 export async function segmentImage(
   imageFile: File,
-  boxThreshold: number = 0.3,
-  textThreshold: number = 0.25
 ): Promise<SegmentResponse> {
   const formData = new FormData();
   formData.append('image', imageFile);
 
   const url = new URL('/api/segment', window.location.origin);
-  url.searchParams.set('box_threshold', boxThreshold.toString());
-  url.searchParams.set('text_threshold', textThreshold.toString());
 
   try {
     const response = await fetch(url.toString(), {

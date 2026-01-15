@@ -258,11 +258,43 @@ export default function Home() {
     setSelectedPart(null);
 
     try {
-      const segmentData = await segmentImage(selectedImage);
-      setSegmentResults(segmentData);
-      setSegmentState('complete');
-      setResultView('segment');
-      lastSegmentRef.current = { imageKey, hasBrushMask };
+      if (brushMaskFile) {
+        // If there is a box selection, treat it as upper1 preview directly
+        const fileToBase64 = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              const base64 = result.includes(',') ? result.split(',')[1] : result;
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        };
+
+        const boxBase64 = await fileToBase64(brushMaskFile);
+        setSegmentResults({
+          upper: boxBase64,
+          upper_1: undefined,
+          upper_2: undefined,
+          upper_3: undefined,
+          upper_4: undefined,
+          lower: undefined,
+          shoes: undefined,
+          head: undefined,
+          hands: undefined,
+        });
+        setSegmentState('complete');
+        setResultView('segment');
+        lastSegmentRef.current = { imageKey, hasBrushMask: true };
+      } else {
+        const segmentData = await segmentImage(selectedImage);
+        setSegmentResults(segmentData);
+        setSegmentState('complete');
+        setResultView('segment');
+        lastSegmentRef.current = { imageKey, hasBrushMask: false };
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '处理失败');
       setSegmentState('error');
