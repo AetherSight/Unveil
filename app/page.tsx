@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   patchWeight: 'unveil_patch_weight',
   patchOnly: 'unveil_patch_only',
   guideSeen: 'unveil_guide_seen',
+  allTags: 'unveil_all_tags_v1',
 };
 import Image from 'next/image';
 import ImageUpload from '@/components/ImageUpload';
@@ -123,10 +124,29 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // 优先使用本地缓存的 tags，避免每次刷新都请求 /api/search/tags
+    const cached = localStorage.getItem(STORAGE_KEYS.allTags);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as string[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAllTags(parsed);
+          return;
+        }
+      } catch {
+        // 解析失败就走网络请求
+      }
+    }
+
     const fetchAllTags = async () => {
       try {
         const tags = await getAllTags();
         setAllTags(tags);
+        try {
+          localStorage.setItem(STORAGE_KEYS.allTags, JSON.stringify(tags));
+        } catch {
+          // 存储失败忽略，不影响使用
+        }
       } catch (err) {
         console.error('Failed to fetch all tags:', err);
       }
@@ -594,53 +614,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white relative">
       {showGuide && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6 space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-base font-medium text-gray-800 mb-1">使用指引</h2>
-                <p className="text-xs text-gray-500 font-light">首次使用时可以按下面的顺序来操作：</p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowGuide(false);
-                  localStorage.setItem(STORAGE_KEYS.guideSeen, 'true');
-                }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <ol className="list-decimal list-inside space-y-1.5 text-xs text-gray-700 font-light">
-              <li className={guideStep === 1 ? 'text-blue-600' : ''}>上传一张你想识别的装备截图（支持拖拽、点击上传或直接粘贴）。</li>
-              <li className={guideStep === 2 ? 'text-blue-600' : ''}>在左侧图片上框选（或涂抹）你要识别的部位区域；框选后，右侧“分割结果”中的身体1会自动出现预览。</li>
-              <li className={guideStep === 3 ? 'text-blue-600' : ''}>点击“分割结果”中的身体1（或对应部位），系统会对该部位进行识别并在下方显示候选装备。</li>
-              <li className={guideStep === 4 ? 'text-blue-600' : ''}>在识别结果中选择最接近的装备；如果都不对，可以在右上角搜索框中用标签/关键词补充描述进行搜索。</li>
-            </ol>
-            <div className="flex justify-between items-center pt-1">
-              <div className="text-[11px] text-gray-400 font-light">
-                步骤 {guideStep} / 4
-              </div>
-              <button
-                onClick={() => {
-                  if (guideStep < 4) {
-                    setGuideStep((s) => s + 1);
-                  } else {
-                    setShowGuide(false);
-                    localStorage.setItem(STORAGE_KEYS.guideSeen, 'true');
-                  }
-                }}
-                className="px-3 py-1.5 text-xs rounded-md bg-gray-900 text-white hover:bg-gray-800 transition-colors"
-              >
-                {guideStep < 4 ? '下一步' : '完成'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <div className="fixed inset-0 bg-black/40 z-30 pointer-events-none" />
       )}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-40">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-light text-gray-800 mb-4 relative inline-block">
             <span className="relative">
