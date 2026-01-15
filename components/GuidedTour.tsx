@@ -89,7 +89,7 @@ const markTourDone = (tourKey: string) => {
 /** 简单防抖封装 */
 const useDebouncedHandler = (fn: () => void, delay: number) => {
   const fnRef = useRef(fn);
-  const timerRef = useRef<number | undefined>();
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     fnRef.current = fn;
@@ -97,7 +97,7 @@ const useDebouncedHandler = (fn: () => void, delay: number) => {
 
   useEffect(() => {
     return () => {
-      if (timerRef.current !== undefined) {
+      if (timerRef.current !== null) {
         window.clearTimeout(timerRef.current);
       }
     };
@@ -105,7 +105,7 @@ const useDebouncedHandler = (fn: () => void, delay: number) => {
 
   const run = useCallback(() => {
     if (!isBrowser) return;
-    if (timerRef.current !== undefined) {
+    if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current);
     }
     timerRef.current = window.setTimeout(() => {
