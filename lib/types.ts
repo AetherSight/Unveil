@@ -35,3 +35,36 @@ export interface ApiError {
   detail?: string;
 }
 
+export interface TagSearchResult {
+  equipment_id: string;
+  equipment_name: string;
+  all_labels: string;
+  appearance_description: string;
+  match_score: number;
+  matched_labels: string[];
+  description_matches: string[];
+  name_matches: string[];
+  same_model_gears?: SameModelGear[];
+}
+
+export interface TagSearchResponse {
+  query_tags: string[];
+  total_matches: number;
+  results: TagSearchResult[];
+}
+
+export interface EquipmentDetail {
+  equipment_id: string;
+  equipment_name: string;
+  colors?: string[];
+  materials?: string[];
+  shapes?: string[];
+  decorations?: string[];
+  styles?: string[];
+  effects?: string[];
+  custom_tags?: string[];
+  appearance_looks_like?: string[];
+  appearance_description?: string;
+  front_image?: string;
+  back_image?: string;
+}

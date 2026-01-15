@@ -1,4 +1,4 @@
-import type { SegmentResponse, PredictResponse, ApiError } from './types';
+import type { SegmentResponse, PredictResponse, ApiError, TagSearchResponse, EquipmentDetail } from './types';
 
 export async function segmentImage(
   imageFile: File,
@@ -204,3 +204,90 @@ export async function searchEquipment(
   }
 }
 
+export async function getAllTags(): Promise<string[]> {
+  const url = new URL('/api/search/tags', window.location.origin);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      }));
+      throw new Error(error.message || error.detail || '获取标签失败');
+    }
+
+    const data = await response.json();
+    return data.tags || [];
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('无法连接到服务器，请检查网络连接或确认后端服务是否已启动');
+    }
+    throw error;
+  }
+}
+
+export async function searchByTags(
+  tags: string[]
+): Promise<TagSearchResponse> {
+  if (!tags || tags.length === 0) {
+    return { query_tags: [], total_matches: 0, results: [] };
+  }
+
+  const url = new URL('/api/search/tags', window.location.origin);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tags }),
+    });
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      }));
+      throw new Error(error.message || error.detail || '搜索失败');
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('无法连接到服务器，请检查网络连接或确认后端服务是否已启动');
+    }
+    throw error;
+  }
+}
+
+export async function getEquipmentDetail(equipmentId: string): Promise<EquipmentDetail> {
+  const trimmedId = equipmentId?.trim();
+  if (!trimmedId) {
+    throw new Error('Equipment ID is required');
+  }
+
+  const url = new URL(`/api/equipment/${trimmedId}`, window.location.origin);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error: ApiError = await response.json().catch(() => ({
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      }));
+      throw new Error(error.message || error.detail || 'Failed to fetch equipment detail');
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error('Unable to connect to server');
+    }
+    throw error;
+  }
+}

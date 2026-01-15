@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import type { PredictionResult } from '@/lib/types';
-import { sendFeedback } from '@/lib/api';
+import type { PredictionResult, EquipmentDetail } from '@/lib/types';
+import { sendFeedback, getEquipmentDetail } from '@/lib/api';
 
 interface PredictionResultsProps {
   results: PredictionResult[];
@@ -19,8 +19,10 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
   const [popupRank, setPopupRank] = useState<number | null>(null); // 当前显示popup的装备rank
   const [failedAngles, setFailedAngles] = useState<Set<string>>(new Set()); // 记录加载失败的角度
   const [renderFiles, setRenderFiles] = useState<Array<{ fileName: string; angle: string }>>([]); // 渲染图文件列表
-  const [loadedIcons, setLoadedIcons] = useState<Set<string>>(new Set()); // 记录已加载的图标ID
-  const [loadedRenders, setLoadedRenders] = useState<Set<string>>(new Set()); // 记录已加载的渲染图
+  const [loadedIcons, setLoadedIcons] = useState<Set<string>>(new Set());
+  const [loadedRenders, setLoadedRenders] = useState<Set<string>>(new Set());
+  const [equipmentDetail, setEquipmentDetail] = useState<EquipmentDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   if (results.length === 0) {
     return null;
@@ -54,17 +56,17 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
     return `/api/gear-render?${params.toString()}`;
   };
 
-  // 当打开新的popup时，重置失败角度记录并获取文件列表
   useEffect(() => {
     if (popupRank !== null) {
       setFailedAngles(new Set());
       setLoadedRenders(new Set());
+      setEquipmentDetail(null);
       const result = results.find(r => r.rank === popupRank);
       if (result) {
-        const { name, id } = parseLabel(result.label);
-        if (id && name) {
-          // 获取文件列表
-          const params = new URLSearchParams({ id, name });
+        const equipmentId = result.id || parseLabel(result.label).id;
+        const { name } = parseLabel(result.label);
+        if (equipmentId && name) {
+          const params = new URLSearchParams({ id: equipmentId, name });
           fetch(`/api/gear-render-list?${params.toString()}`)
             .then(res => res.json())
             .then(data => {
@@ -75,13 +77,27 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
               }
             })
             .catch(err => {
-              console.error('获取渲染图列表失败:', err);
+              console.error('Failed to fetch render files:', err);
               setRenderFiles([]);
             });
+
+          if (equipmentId && equipmentId.trim()) {
+            setLoadingDetail(true);
+            getEquipmentDetail(equipmentId)
+              .then(detail => {
+                setEquipmentDetail(detail);
+                setLoadingDetail(false);
+              })
+              .catch(err => {
+                console.error('Failed to fetch equipment detail:', err);
+                setLoadingDetail(false);
+              });
+          }
         }
       }
     } else {
       setRenderFiles([]);
+      setEquipmentDetail(null);
     }
   }, [popupRank, results]);
 
@@ -362,7 +378,9 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
         if (!result) {
           return null;
         }
-        const { name: currentName, id: currentId } = parseLabel(result.label);
+        const equipmentId = result.id || parseLabel(result.label).id;
+        const { name: currentName } = parseLabel(result.label);
+        const currentId = equipmentId;
         const currentIconUrl = getIconUrl(currentId);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPopupRank(null)}>
@@ -475,6 +493,114 @@ export default function PredictionResults({ results, croppedImageFile, isSearchR
                       </svg>
                     </button>
                   </div>
+                  
+                  {/* Equipment Details */}
+                  {loadingDetail && (
+                    <div className="text-xs text-gray-400 font-light">Loading details...</div>
+                  )}
+                  {equipmentDetail && !loadingDetail && (
+                    <div className="space-y-3 pt-3 border-t border-gray-200">
+                      {equipmentDetail.appearance_description && (
+                        <div>
+                          <div className="text-xs text-gray-500 font-light mb-1">Description</div>
+                          <div className="text-xs text-gray-700 font-light leading-relaxed">
+                            {equipmentDetail.appearance_description}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {equipmentDetail.colors && equipmentDetail.colors.length > 0 && (
+                        <div>
+                          <div className="text-xs text-gray-500 font-light mb-1">Colors</div>
+                          <div className="flex flex-wrap gap-1">
+                            {equipmentDetail.colors.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-light rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {equipmentDetail.materials && equipmentDetail.materials.length > 0 && (
+                        <div>
+                          <div className="text-xs text-gray-500 font-light mb-1">Materials</div>
+                          <div className="flex flex-wrap gap-1">
+                            {equipmentDetail.materials.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-light rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {equipmentDetail.shapes && equipmentDetail.shapes.length > 0 && (
+                        <div>
+                          <div className="text-xs text-gray-500 font-light mb-1">Shapes</div>
+                          <div className="flex flex-wrap gap-1">
+                            {equipmentDetail.shapes.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-light rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {equipmentDetail.decorations && equipmentDetail.decorations.length > 0 && (
+                        <div>
+                          <div className="text-xs text-gray-500 font-light mb-1">Decorations</div>
+                          <div className="flex flex-wrap gap-1">
+                            {equipmentDetail.decorations.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-light rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {equipmentDetail.styles && equipmentDetail.styles.length > 0 && (
+                        <div>
+                          <div className="text-xs text-gray-500 font-light mb-1">Styles</div>
+                          <div className="flex flex-wrap gap-1">
+                            {equipmentDetail.styles.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-light rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {equipmentDetail.custom_tags && equipmentDetail.custom_tags.length > 0 && (
+                        <div>
+                          <div className="text-xs text-gray-500 font-light mb-1">Custom Tags</div>
+                          <div className="flex flex-wrap gap-1">
+                            {equipmentDetail.custom_tags.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-light rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {equipmentDetail.appearance_looks_like && equipmentDetail.appearance_looks_like.length > 0 && (
+                        <div>
+                          <div className="text-xs text-gray-500 font-light mb-1">Looks Like</div>
+                          <div className="flex flex-wrap gap-1">
+                            {equipmentDetail.appearance_looks_like.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-light rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

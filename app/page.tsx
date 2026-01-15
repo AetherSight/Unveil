@@ -15,8 +15,8 @@ import PredictionResultsSkeleton from '@/components/PredictionResultsSkeleton';
 import SegmentResults, { partLabels } from '@/components/SegmentResults';
 import SegmentResultsSkeleton from '@/components/SegmentResultsSkeleton';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { predictEquipment, segmentImage, removeBackground, searchEquipment } from '@/lib/api';
-import type { PredictionResult, SegmentResponse } from '@/lib/types';
+import { predictEquipment, segmentImage, removeBackground, searchEquipment, getAllTags, searchByTags } from '@/lib/api';
+import type { PredictionResult, SegmentResponse, TagSearchResult } from '@/lib/types';
 
 type ProcessingState = 'idle' | 'predicting' | 'complete' | 'error';
 type ResultView = 'prediction' | 'segment';
@@ -40,10 +40,15 @@ export default function Home() {
   const [selectedSegmentPart, setSelectedSegmentPart] = useState<keyof SegmentResponse | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null); // base64 string或预览用base64
   const [selectionMode, setSelectionMode] = useState<'brush' | 'box'>('box'); // 当前选择模式，默认框选
-  const [searchQuery, setSearchQuery] = useState<string>(''); // 搜索关键词
-  const [searchResults, setSearchResults] = useState<PredictionResult[]>([]); // 搜索结果
+  const [searchQuery, setSearchQuery] = useState<string>(''); // 搜索关键词（用于输入）
+  const [selectedTags, setSelectedTags] = useState<string[]>([]); // 已选择的标签
+  const [searchResults, setSearchResults] = useState<TagSearchResult[]>([]); // 搜索结果
   const [searchState, setSearchState] = useState<'idle' | 'searching' | 'complete' | 'error'>('idle'); // 搜索状态
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<string[]>([]); // 自动补全建议
+  const [autocompleteVisible, setAutocompleteVisible] = useState(false); // 是否显示自动补全
+  const [allTags, setAllTags] = useState<string[]>([]); // 所有 tags，从后端获取一次后保存在本地
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 搜索防抖
+  const searchInputRef = useRef<HTMLInputElement>(null); // 搜索输入框引用
   const lastProcessedRef = useRef<{
     imageKey: string | null;
     cropAreaKey: string | null;
@@ -107,6 +112,19 @@ export default function Home() {
 
   const handleCropAreaChange = useCallback((area: { x: number; y: number; width: number; height: number } | null) => {
     setCropArea(area);
+  }, []);
+
+  useEffect(() => {
+    const fetchAllTags = async () => {
+      try {
+        const tags = await getAllTags();
+        setAllTags(tags);
+      } catch (err) {
+        console.error('Failed to fetch all tags:', err);
+      }
+    };
+    
+    fetchAllTags();
   }, []);
 
   useEffect(() => {
@@ -425,36 +443,101 @@ export default function Home() {
     }
   }, [brushMaskFile, selectedImage, cropArea, base64ToFile, selectionMode, processingState, selectedPart, patchWeight, patchOnly]);
 
-  // 处理搜索输入变化，自动触发搜索
   const handleSearchInputChange = useCallback((value: string) => {
     setSearchQuery(value);
     
-    // 清除之前的定时器
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+    if (value.trim() === '') {
+      setAutocompleteSuggestions([]);
+      setAutocompleteVisible(false);
+      return;
     }
     
-    if (value.trim() === '') {
+    const query = value.trim().toLowerCase();
+    const exactMatch = allTags.find(tag => tag.toLowerCase() === query);
+    const filtered = allTags.filter(tag => 
+      tag.toLowerCase().includes(query) && tag.toLowerCase() !== query
+    );
+    
+    const sorted = filtered.sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      const aStartsWith = aLower.startsWith(query);
+      const bStartsWith = bLower.startsWith(query);
+      
+      if (aStartsWith && !bStartsWith) return -1;
+      if (!aStartsWith && bStartsWith) return 1;
+      return aLower.localeCompare(bLower);
+    });
+    
+    const suggestions = exactMatch 
+      ? [exactMatch, ...sorted.slice(0, 9)]
+      : sorted.slice(0, 10);
+    
+    setAutocompleteSuggestions(suggestions);
+    setAutocompleteVisible(suggestions.length > 0);
+  }, [allTags]);
+
+  const addTag = useCallback((tag: string) => {
+    const trimmedTag = tag.trim();
+    if (trimmedTag && !selectedTags.includes(trimmedTag)) {
+      setSelectedTags(prev => [...prev, trimmedTag]);
+      setSearchQuery('');
+      setAutocompleteVisible(false);
+      setAutocompleteSuggestions([]);
+    }
+  }, [selectedTags]);
+
+  const removeTag = useCallback((tag: string) => {
+    setSelectedTags(prev => prev.filter(t => t !== tag));
+  }, []);
+
+  const handleSearchByTags = useCallback(async () => {
+    if (selectedTags.length === 0) {
       setSearchResults([]);
       setSearchState('idle');
       return;
     }
-    
-    // 防抖：500ms 后触发搜索
-    searchTimeoutRef.current = setTimeout(async () => {
-      setSearchState('searching');
-      setSearchResults([]);
 
-      try {
-        const data = await searchEquipment(value.trim(), 50);
-        setSearchResults(data.results);
-        setSearchState('complete');
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '搜索失败');
-        setSearchState('error');
+    setSearchState('searching');
+    setSearchResults([]);
+    setAutocompleteVisible(false);
+
+    try {
+      const data = await searchByTags(selectedTags);
+      setSearchResults(data.results);
+      setSearchState('complete');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '搜索失败');
+      setSearchState('error');
+    }
+  }, [selectedTags]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const query = searchQuery.trim();
+      
+      if (query === '') {
+        if (selectedTags.length > 0) {
+          handleSearchByTags();
+        }
+        return;
       }
-    }, 500);
-  }, []);
+      
+      addTag(query);
+    } else if (e.key === 'Escape') {
+      setAutocompleteVisible(false);
+    }
+  }, [searchQuery, selectedTags, handleSearchByTags, addTag]);
+
+  useEffect(() => {
+    if (selectedTags.length > 0) {
+      handleSearchByTags();
+    } else {
+      setSearchResults([]);
+      setSearchState('idle');
+    }
+  }, [selectedTags, handleSearchByTags]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -633,20 +716,75 @@ export default function Home() {
             {/* 搜索框 */}
             <div className="w-full border border-gray-200 rounded-lg bg-white p-4">
               <div className="relative">
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => handleSearchInputChange(e.target.value)}
-                    placeholder="搜索装备名称..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-light focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    suppressHydrationWarning
-                  />
-                  {searchState === 'searching' && (
-                    <LoadingSpinner size="sm" />
+                {/* 已选择的 tags */}
+                {selectedTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {selectedTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-light rounded-lg"
+                      >
+                        <span>{tag}</span>
+                        <button
+                          onClick={() => removeTag(tag)}
+                          className="hover:text-gray-900 transition-colors"
+                          aria-label={`删除标签 ${tag}`}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="relative">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => handleSearchInputChange(e.target.value)}
+                      onKeyDown={handleSearchKeyDown}
+                      onFocus={() => {
+                        if (autocompleteSuggestions.length > 0) {
+                          setAutocompleteVisible(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        // 延迟隐藏，以便点击自动补全项时能触发
+                        setTimeout(() => setAutocompleteVisible(false), 200);
+                      }}
+                      placeholder={selectedTags.length > 0 ? "添加标签..." : "搜索标签..."}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-xs font-light focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      suppressHydrationWarning
+                    />
+                    {searchState === 'searching' && (
+                      <LoadingSpinner size="sm" />
+                    )}
+                  </div>
+                  
+                  {/* 自动补全下拉 */}
+                  {autocompleteVisible && autocompleteSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                      {autocompleteSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            addTag(suggestion);
+                            searchInputRef.current?.focus();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm font-light text-gray-700 hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -657,7 +795,14 @@ export default function Home() {
               <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
                 <h3 className="text-sm font-light text-gray-700 mb-4">搜索结果</h3>
                 <PredictionResults 
-                  results={searchResults} 
+                  results={searchResults.map((result, index) => ({
+                    rank: index + 1,
+                    label: `${result.equipment_name}_${result.equipment_id}`,
+                    score: result.match_score,
+                    name: result.equipment_name,
+                    id: result.equipment_id,
+                    same_model_gears: result.same_model_gears,
+                  }))} 
                   croppedImageFile={null}
                   isSearchResult={true}
                 />
