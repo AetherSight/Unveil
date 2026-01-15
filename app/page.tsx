@@ -6,7 +6,6 @@ const STORAGE_KEYS = {
   topK: 'unveil_top_k',
   patchWeight: 'unveil_patch_weight',
   patchOnly: 'unveil_patch_only',
-  guideSeen: 'unveil_guide_seen',
   allTags: 'unveil_all_tags_v1',
 };
 import Image from 'next/image';
@@ -49,8 +48,6 @@ export default function Home() {
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<string[]>([]); // 自动补全建议
   const [autocompleteVisible, setAutocompleteVisible] = useState(false); // 是否显示自动补全
   const [allTags, setAllTags] = useState<string[]>([]); // 所有 tags，从后端获取一次后保存在本地
-  const [showGuide, setShowGuide] = useState<boolean>(false);
-  const [guideStep, setGuideStep] = useState<number>(1);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 搜索防抖
   const searchInputRef = useRef<HTMLInputElement>(null); // 搜索输入框引用
   const lastProcessedRef = useRef<{
@@ -66,7 +63,6 @@ export default function Home() {
     const savedTopK = localStorage.getItem(STORAGE_KEYS.topK);
     const savedPatchWeight = localStorage.getItem(STORAGE_KEYS.patchWeight);
     const savedPatchOnly = localStorage.getItem(STORAGE_KEYS.patchOnly);
-    const guideSeen = localStorage.getItem(STORAGE_KEYS.guideSeen);
     
     if (savedTopK) {
       setDisplayCount(parseInt(savedTopK));
@@ -81,10 +77,6 @@ export default function Home() {
     // 如果没有保存的值，保持默认值 0.3
     if (savedPatchOnly !== null) {
       setPatchOnly(savedPatchOnly === 'true');
-    }
-    if (!guideSeen) {
-      setShowGuide(true);
-      setGuideStep(1);
     }
   }, []);
 
@@ -612,11 +604,8 @@ export default function Home() {
   }, [selectedTags, handleSearchByTags]);
 
   return (
-    <div className="min-h-screen bg-white relative">
-      {showGuide && (
-        <div className="fixed inset-0 bg-black/40 z-30 pointer-events-none" />
-      )}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-40">
+    <div className="min-h-screen bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-light text-gray-800 mb-4 relative inline-block">
             <span className="relative">
@@ -641,49 +630,42 @@ export default function Home() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="flex flex-col space-y-4">
-            <div className={`relative ${showGuide && guideStep === 1 ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white rounded-lg' : ''}`}>
-              {!imagePreview ? (
-                <ImageUpload
-                  onImageSelect={handleImageSelect}
-                  disabled={processingState === 'predicting'}
-                />
-              ) : null}
-              {showGuide && guideStep === 1 && (
-                <div className="absolute -top-3 left-2 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-light shadow">
-                  步骤 1 · 上传图片
-                </div>
-              )}
-            </div>
+            {!imagePreview ? (
+              <ImageUpload
+                onImageSelect={handleImageSelect}
+                disabled={processingState === 'predicting'}
+              />
+            ) : null}
             
             {imagePreview ? (
-                <div className={`relative ${showGuide && guideStep === 2 ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white rounded-lg' : ''}`}>
-                  <ImageWithCrop
-                    imageSrc={imagePreview}
-                    onCropAreaChange={handleCropAreaChange}
-                    onBrushMaskChange={handleBrushMaskChange}
-                    cropArea={cropArea}
-                  />
+              <div className="relative">
+                <ImageWithCrop
+                  imageSrc={imagePreview}
+                  onCropAreaChange={handleCropAreaChange}
+                  onBrushMaskChange={handleBrushMaskChange}
+                  cropArea={cropArea}
+                />
                 <div className="absolute top-2 right-2 z-20">
-                    <button
-                      onClick={handleReset}
-                      disabled={processingState === 'predicting'}
+                  <button
+                    onClick={handleReset}
+                    disabled={processingState === 'predicting'}
                     className="w-8 h-8 flex items-center justify-center bg-white/80 hover:bg白 border border-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="删除图片"
+                    title="删除图片"
+                  >
+                    <svg
+                      className="w-4 h-4 text-gray-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="w-4 h-4 text-gray-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -789,7 +771,7 @@ export default function Home() {
 
           <div className="flex flex-col space-y-4">
             {/* 搜索框 */}
-            <div className={`w-full border border-gray-200 rounded-lg bg-white p-4 relative ${showGuide && guideStep === 4 ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''}`}>
+            <div className="w-full border border-gray-200 rounded-lg bg-white p-4">
               <div className="relative">
                 {/* 已选择的 tags */}
                 {selectedTags.length > 0 && (
@@ -888,7 +870,7 @@ export default function Home() {
               <>
                 {/* 分割结果区域 - 仅在自动分割后显示 */}
                 {(segmentResults || segmentState === 'segmenting') && (
-                  <div className={`w-full border border-gray-200 rounded-lg bg-white p-6 relative ${showGuide && guideStep === 3 ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''}`}>
+                  <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
                     <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
                     {segmentState === 'segmenting' ? (
                       <SegmentResultsSkeleton />
@@ -952,17 +934,6 @@ export default function Home() {
                 AetherSight
               </a>
               <span> with ♥</span>
-              <span className="mx-2 text-gray-300">|</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setGuideStep(1);
-                  setShowGuide(true);
-                }}
-                className="text-gray-500 hover:text-gray-800 underline underline-offset-2"
-              >
-                帮助
-              </button>
             </div>
             <div className="text-center space-y-1">
               <p>FINAL FANTASY XIV © 2010-2026 SQUARE ENIX CO., LTD. All Rights Reserved.</p>
