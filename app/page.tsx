@@ -221,11 +221,48 @@ export default function Home() {
   const handleClearSelection = useCallback(() => {
     setCropArea(null);
     setBrushMaskFile(null);
+    setSegmentResults(null);
   }, []);
 
-  const handleBrushMaskChange = useCallback((file: File | null) => {
+  const handleBrushMaskChange = useCallback(async (file: File | null) => {
     setBrushMaskFile(file);
-  }, []);
+
+    if (!file || selectionMode !== 'box') {
+      return;
+    }
+
+    const fileToBase64 = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64 = result.includes(',') ? result.split(',')[1] : result;
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    };
+
+    try {
+      const boxBase64 = await fileToBase64(file);
+      setSegmentResults({
+        upper: boxBase64,
+        upper_1: undefined,
+        upper_2: undefined,
+        upper_3: undefined,
+        upper_4: undefined,
+        lower: undefined,
+        shoes: undefined,
+        head: undefined,
+        hands: undefined,
+      });
+      setSegmentState('complete');
+      setResultView('segment');
+    } catch (err) {
+      console.error('Failed to generate preview from box selection:', err);
+    }
+  }, [selectionMode]);
 
   const handleSegment = useCallback(async () => {
     if (!selectedImage || !imagePreview) {
@@ -646,7 +683,7 @@ export default function Home() {
                           <li>如果已框选区域，点击"自动识别"将移除背景并显示到上身1；如果未框选，将自动分割所有部位。</li>
                           <li>如果识别结果中找到了匹配的装备，请点击右侧装备卡片上的图标进行反馈，这将帮助我们持续提升识别准确率。</li>
                           <li>相同模型的装备会合并显示，点击后可查看该模型下的所有装备变体。</li>
-                          <li>本服务目前处于试运行阶段（Beta），识别准确率和服务可用性可能不稳定，请谨慎使用。</li>
+                          <li>本服务目前处于试运行阶段，识别准确率和服务可用性可能不稳定，请谨慎使用。</li>
                         </ol>
               </div>
               <div className="space-y-3">
