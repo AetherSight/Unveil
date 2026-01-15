@@ -138,11 +138,19 @@ const computeTooltipPosition = (
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
 
+  const defaultPlacements: TourPlacement[] = [
+    'bottom',
+    'top',
+    'right',
+    'left',
+  ];
+
   const placements: TourPlacement[] = preferred
-    ? [preferred, 'bottom', 'top', 'right', 'left'].filter(
-        (p, index, arr) => arr.indexOf(p) === index,
-      )
-    : ['bottom', 'top', 'right', 'left'];
+    ? [
+        preferred,
+        ...defaultPlacements.filter((p) => p !== preferred),
+      ]
+    : defaultPlacements;
 
   const tryPlacement = (placement: TourPlacement): TooltipPosition => {
     let top = 0;
