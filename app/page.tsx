@@ -258,36 +258,11 @@ export default function Home() {
     setSelectedPart(null);
 
     try {
-      // 如果框选了，则移除背景并显示到上身1
-      if (brushMaskFile) {
-        // 调用去除背景接口，返回 base64
-        const removedBgBase64 = await removeBackground(brushMaskFile);
-
-        // 将结果放入上身1（upper）容器，其他上身槽位只显示占位图标
-        setSegmentResults({
-          upper: removedBgBase64,
-          upper_1: undefined,
-          upper_2: undefined,
-          upper_3: undefined,
-          upper_4: undefined,
-          lower: undefined,
-          shoes: undefined,
-          head: undefined,
-          hands: undefined,
-        });
-        setSegmentState('complete');
-        setResultView('segment');
-        // 记录本次处理状态
-        lastSegmentRef.current = { imageKey, hasBrushMask: true };
-      } else {
-        // 如果没有框选，则自动分割部位
       const segmentData = await segmentImage(selectedImage);
       setSegmentResults(segmentData);
       setSegmentState('complete');
       setResultView('segment');
-      // 记录本次处理状态
-      lastSegmentRef.current = { imageKey, hasBrushMask: false };
-      }
+      lastSegmentRef.current = { imageKey, hasBrushMask };
     } catch (err) {
       setError(err instanceof Error ? err.message : '处理失败');
       setSegmentState('error');
