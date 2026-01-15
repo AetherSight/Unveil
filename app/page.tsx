@@ -49,6 +49,7 @@ export default function Home() {
   const [autocompleteVisible, setAutocompleteVisible] = useState(false); // 是否显示自动补全
   const [allTags, setAllTags] = useState<string[]>([]); // 所有 tags，从后端获取一次后保存在本地
   const [showGuide, setShowGuide] = useState<boolean>(false);
+  const [guideStep, setGuideStep] = useState<number>(1);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 搜索防抖
   const searchInputRef = useRef<HTMLInputElement>(null); // 搜索输入框引用
   const lastProcessedRef = useRef<{
@@ -82,6 +83,7 @@ export default function Home() {
     }
     if (!guideSeen) {
       setShowGuide(true);
+      setGuideStep(1);
     }
   }, []);
 
@@ -612,20 +614,27 @@ export default function Home() {
               </button>
             </div>
             <ol className="list-decimal list-inside space-y-1.5 text-xs text-gray-700 font-light">
-              <li>上传一张你想识别的装备截图（支持拖拽、点击上传或直接粘贴）。</li>
-              <li>在左侧图片上框选（或涂抹）你要识别的部位区域；框选后，右侧“分割结果”中的身体1会自动出现预览。</li>
-              <li>点击“分割结果”中的身体1（或对应部位），系统会对该部位进行识别并在下方显示候选装备。</li>
-              <li>在识别结果中选择最接近的装备；如果都不对，可以在右上角搜索框中用标签/关键词补充描述进行搜索。</li>
+              <li className={guideStep === 1 ? 'text-blue-600' : ''}>上传一张你想识别的装备截图（支持拖拽、点击上传或直接粘贴）。</li>
+              <li className={guideStep === 2 ? 'text-blue-600' : ''}>在左侧图片上框选（或涂抹）你要识别的部位区域；框选后，右侧“分割结果”中的身体1会自动出现预览。</li>
+              <li className={guideStep === 3 ? 'text-blue-600' : ''}>点击“分割结果”中的身体1（或对应部位），系统会对该部位进行识别并在下方显示候选装备。</li>
+              <li className={guideStep === 4 ? 'text-blue-600' : ''}>在识别结果中选择最接近的装备；如果都不对，可以在右上角搜索框中用标签/关键词补充描述进行搜索。</li>
             </ol>
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center pt-1">
+              <div className="text-[11px] text-gray-400 font-light">
+                步骤 {guideStep} / 4
+              </div>
               <button
                 onClick={() => {
-                  setShowGuide(false);
-                  localStorage.setItem(STORAGE_KEYS.guideSeen, 'true');
+                  if (guideStep < 4) {
+                    setGuideStep((s) => s + 1);
+                  } else {
+                    setShowGuide(false);
+                    localStorage.setItem(STORAGE_KEYS.guideSeen, 'true');
+                  }
                 }}
                 className="px-3 py-1.5 text-xs rounded-md bg-gray-900 text-white hover:bg-gray-800 transition-colors"
               >
-                知道了
+                {guideStep < 4 ? '下一步' : '完成'}
               </button>
             </div>
           </div>
@@ -656,15 +665,22 @@ export default function Home() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="flex flex-col space-y-4">
-            {!imagePreview ? (
-              <ImageUpload
-                onImageSelect={handleImageSelect}
-                disabled={processingState === 'predicting'}
-              />
-            ) : null}
+            <div className={`relative ${showGuide && guideStep === 1 ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white rounded-lg' : ''}`}>
+              {!imagePreview ? (
+                <ImageUpload
+                  onImageSelect={handleImageSelect}
+                  disabled={processingState === 'predicting'}
+                />
+              ) : null}
+              {showGuide && guideStep === 1 && (
+                <div className="absolute -top-3 left-2 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-light shadow">
+                  步骤 1 · 上传图片
+                </div>
+              )}
+            </div>
             
             {imagePreview ? (
-                <div className="relative">
+                <div className={`relative ${showGuide && guideStep === 2 ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white rounded-lg' : ''}`}>
                   <ImageWithCrop
                     imageSrc={imagePreview}
                     onCropAreaChange={handleCropAreaChange}
@@ -800,7 +816,7 @@ export default function Home() {
 
           <div className="flex flex-col space-y-4">
             {/* 搜索框 */}
-            <div className="w-full border border-gray-200 rounded-lg bg-white p-4">
+            <div className={`w-full border border-gray-200 rounded-lg bg-white p-4 relative ${showGuide && guideStep === 4 ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''}`}>
               <div className="relative">
                 {/* 已选择的 tags */}
                 {selectedTags.length > 0 && (
@@ -899,7 +915,7 @@ export default function Home() {
               <>
                 {/* 分割结果区域 - 仅在自动分割后显示 */}
                 {(segmentResults || segmentState === 'segmenting') && (
-                  <div className="w-full border border-gray-200 rounded-lg bg-white p-6">
+                  <div className={`w-full border border-gray-200 rounded-lg bg-white p-6 relative ${showGuide && guideStep === 3 ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-white' : ''}`}>
                     <h3 className="text-sm font-light text-gray-700 mb-4">分割结果</h3>
                     {segmentState === 'segmenting' ? (
                       <SegmentResultsSkeleton />
